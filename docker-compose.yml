@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    # Commande Gunicorn (stable pour Mac)
+    command: sh -c "cd src && gunicorn --bind 0.0.0.0:8000 config.wsgi:application"
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    # On charge le fichier .env (CRITIQUE pour GEMINI_API_KEY et la BDD)
+    env_file:
+      - .env
+    depends_on:
+      - db
+    # --- FIX CRITIQUE POUR MAC SILICON (M1/M2/M3) ---
+    # Permet à la librairie Google AI de lancer ses threads
+    security_opt:
+      - seccomp:unconfined
+
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    # On utilise aussi le .env pour s'assurer que le mot de passe est le même que le web
+    env_file:
+      - .env
+
+volumes:
+  postgres_data:
