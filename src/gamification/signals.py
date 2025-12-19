@@ -6,6 +6,7 @@ from django.db.models import F
 from tickets.models import BetSelection
 from gamification.models import UserGlobalStats, UserSportStats, UserBadge
 from gamification.badges import BADGE_REGISTRY
+from gamification.utils import update_reputation
 from users.models import CustomUser
 
 @receiver(post_save, sender=BetSelection)
@@ -18,100 +19,81 @@ def update_user_stats(sender, instance, created, **kwargs):
 def process_bet_result(bet_selection):
     user = bet_selection.ticket.user
     outcome = bet_selection.outcome
-    stake = bet_selection.stake
     odds = bet_selection.odds
+    created_at = bet_selection.created
+    kickoff_time = bet_selection.kickoff_time
 
-    # Calculate return
-    payout = Decimal('0.00')
-    if outcome == BetSelection.Outcome.WON:
-        payout = stake * odds
-    elif outcome == BetSelection.Outcome.VOID:
-        payout = stake # Refund
-    # LOST = 0
+    # Validation Temporelle: Ignore stats if created >= kickoff_time
+    is_valid_time = True
+    if kickoff_time and created_at >= kickoff_time:
+        is_valid_time = False
 
     with transaction.atomic():
-        # Lock the bet selection to prevent concurrent processing (double check)
-        # However, post_save is already triggered. We should lock the stats rows.
-        # We also need to mark bet_selection as processed inside the transaction.
-
-        # Reload bet_selection with lock to ensure 'stats_processed' is still False
+        # Lock the bet selection
         bet_selection = BetSelection.objects.select_for_update().get(id=bet_selection.id)
         if bet_selection.stats_processed:
+            return
+
+        # Mark as processed immediately to avoid re-entry if something fails later but we want to consume the event
+        # Actually, we should mark it at the end of transaction.
+
+        if not is_valid_time:
+            # Just mark as processed and exit
+            bet_selection.stats_processed = True
+            bet_selection.save()
             return
 
         # 1. Update Global Stats
         global_stats, _ = UserGlobalStats.objects.select_for_update().get_or_create(user=user)
 
-        # Prepare updates
-        updates = {
-            'total_bets': F('total_bets') + 1,
-            'total_investment': F('total_investment') + stake,
-            'total_return': F('total_return') + payout,
-        }
+        # Unit based calculation: 1 unit per bet.
+        # units_returned: if WON => odds. if VOID => 1. if LOST => 0.
+
+        units_returned_delta = Decimal('0.00')
+
+        global_stats.total_bets += 1
 
         if outcome == BetSelection.Outcome.WON:
-            updates['wins'] = F('wins') + 1
-            updates['current_win_streak'] = F('current_win_streak') + 1
-            # We need to handle max_win_streak.
-            # F() cannot conditionally update max_win_streak based on the new current_win_streak easily in one go.
-            # So we might need to fetch the current value first, or update it in a second step.
-            # But since we have exclusive lock on global_stats (select_for_update), we can safely read and update.
-            # However, F() is preferred for atomicity against other processes, but select_for_update already handles that for this row.
-            # So we can use python values if we are sure we locked the row.
-
-            # Let's use Python arithmetic since we locked the row.
-            global_stats.total_bets += 1
-            global_stats.total_investment += stake
-            global_stats.total_return += payout
+            units_returned_delta = odds
             global_stats.wins += 1
-            global_stats.current_win_streak += 1
-            if global_stats.current_win_streak > global_stats.max_win_streak:
-                global_stats.max_win_streak = global_stats.current_win_streak
+            global_stats.current_streak += 1
+            if global_stats.current_streak > global_stats.max_streak:
+                global_stats.max_streak = global_stats.current_streak
 
         elif outcome == BetSelection.Outcome.LOST:
-            updates['losses'] = F('losses') + 1
-            updates['current_win_streak'] = 0 # Reset streak
-
-            global_stats.total_bets += 1
-            global_stats.total_investment += stake
-            global_stats.total_return += payout
             global_stats.losses += 1
-            global_stats.current_win_streak = 0
+            global_stats.current_streak = 0
 
         elif outcome == BetSelection.Outcome.VOID:
-            updates['voids'] = F('voids') + 1
-            # Void usually doesn't break streak? Or does it?
-            # Standard: Void doesn't count for streak, so streak stays same.
-
-            global_stats.total_bets += 1
-            global_stats.total_investment += stake
-            global_stats.total_return += payout
+            # Void returns the unit.
+            units_returned_delta = Decimal('1.00')
             global_stats.voids += 1
+            # Void usually keeps streak intact or ignores it?
+            # Standard: Streak implies consecutive wins. A void is neither win nor loss.
+            # Usually streak is not reset but not incremented.
 
+        global_stats.units_returned += units_returned_delta
         global_stats.save()
 
         # 2. Update Sport Stats
         sport = bet_selection.match.league.sport
         sport_stats, _ = UserSportStats.objects.select_for_update().get_or_create(user=user, sport=sport)
 
+        sport_stats.total_bets += 1
+
         if outcome == BetSelection.Outcome.WON:
-            sport_stats.total_bets += 1
-            sport_stats.total_investment += stake
-            sport_stats.total_return += payout
+            sport_stats.units_returned += odds
             sport_stats.wins += 1
-            sport_stats.current_win_streak += 1
-            if sport_stats.current_win_streak > sport_stats.max_win_streak:
-                sport_stats.max_win_streak = sport_stats.current_win_streak
+            sport_stats.current_streak += 1
+            if sport_stats.current_streak > sport_stats.max_streak:
+                sport_stats.max_streak = sport_stats.current_streak
+
         elif outcome == BetSelection.Outcome.LOST:
-            sport_stats.total_bets += 1
-            sport_stats.total_investment += stake
-            sport_stats.total_return += payout
             sport_stats.losses += 1
-            sport_stats.current_win_streak = 0
+            sport_stats.current_streak = 0
+
         elif outcome == BetSelection.Outcome.VOID:
-            sport_stats.total_bets += 1
-            sport_stats.total_investment += stake
-            sport_stats.total_return += payout
+            sport_stats.units_returned += Decimal('1.00')
             sport_stats.voids += 1
 
         sport_stats.save()
@@ -120,7 +102,15 @@ def process_bet_result(bet_selection):
         bet_selection.stats_processed = True
         bet_selection.save()
 
-        # 4. Check Badges
+        # 4. Calculate Halo / Reputation (Real-time)
+        # This function updates the UserGlobalStats row again (or specific fields).
+        # Since we are in atomic block, it is safe.
+        update_reputation(user)
+
+        # Reload global stats to get updated reputation/halo for badges if needed
+        global_stats.refresh_from_db()
+
+        # 5. Check Badges
         # We check badges against Global Stats and Sport Stats
         for badge in BADGE_REGISTRY:
             # Try with Global Stats

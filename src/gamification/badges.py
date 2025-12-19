@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from gamification.models import UserBadge
+from django.utils import timezone
+from django.db.models import F
+from datetime import timedelta
+from gamification.models import UserBadge, UserSportStats, UserGlobalStats
+from tickets.models import BetSelection
 
 class BaseBadge(ABC):
     slug = None
@@ -24,72 +28,78 @@ class BaseBadge(ABC):
             defaults={'description': self.description}
         )
 
-class SniperBadge(BaseBadge):
-    slug = "sniper"
-    name = "Sniper"
-    description = "Winrate > 70% sur au moins 20 paris."
+# Original Badge: Sniper (Keep or Remove? The prompt replaced them with "Expert", "Série de Feu", "Anticipateur")
+# The prompt says: "Implémente : Sniper... On Fire... Tennis Expert" IN THE FIRST PROMPT.
+# IN THE SECOND PROMPT: "Implémente une logique de 'Checkers'... Trophée 'L'Expert', 'Série de Feu', 'Anticipateur'".
+# I should implement the NEW list. I can keep the old ones if compatible or replace them.
+# The new ones seem to replace or refine.
+# "Série de Feu" is updated to streak >= 7 (was 5).
+# "L'Expert" replaces "Tennis Expert" but is generic "Expert on a specific sport".
+# "Anticipateur" is new.
+
+class ExpertBadge(BaseBadge):
+    slug = "expert"
+    name = "L'Expert"
+    description = "> 65% de réussite sur un sport spécifique (min. 15 paris)."
 
     def check_condition(self, stats, bet_selection=None):
-        # We need to make sure we are checking global stats or sport stats?
-        # Prompt says "Winrate > 70% sur au moins 20 paris".
-        # Assuming Global Stats for simplicity unless specified.
-        # But if it is a sport badge, we should check sport stats.
-        # The prompt examples: "Sniper", "On Fire", "Tennis Expert".
-        # "Tennis Expert" implies sport specific. "Sniper" and "On Fire" sound global.
-
-        # We will check based on the stats object passed.
-        # However, the calling code needs to decide which stats to pass.
-        # I will design the badge to expect a specific type of stats or handle both if they share interface.
-        # Both share total_bets and winrate property.
-
-        if stats.total_bets >= 20:
-            return stats.winrate > 70
+        # Must be UserSportStats
+        if isinstance(stats, UserSportStats):
+            if stats.total_bets >= 15:
+                return stats.winrate > 65
         return False
 
-class OnFireBadge(BaseBadge):
-    slug = "on_fire"
-    name = "On Fire"
-    description = "current_win_streak >= 5"
+class FireStreakBadge(BaseBadge):
+    slug = "serie_de_feu"
+    name = "Série de Feu"
+    description = "Atteindre une current_streak de 7 victoires."
 
     def check_condition(self, stats, bet_selection=None):
-        return stats.current_win_streak >= 5
+        # Can be global or sport based? Usually global unless specified.
+        # "Atteindre une current_streak de 7 victoires" -> implies Global.
+        # But if checking sport stats, it might award per sport.
+        # Let's assume Global for the main trophy, but if Sport stats have streak, we could award too?
+        # Typically "Series of Fire" is a global user achievement.
+        if isinstance(stats, UserGlobalStats):
+            return stats.current_streak >= 7
+        return False
 
-class TennisExpertBadge(BaseBadge):
-    slug = "tennis_expert"
-    name = "Tennis Expert"
-    description = "total_bets > 50 sur le sport 'Tennis'."
+class AnticipatorBadge(BaseBadge):
+    slug = "anticipateur"
+    name = "Anticipateur"
+    description = "Avoir posté 10 paris plus de 24h avant le coup d'envoi."
 
     def check_condition(self, stats, bet_selection=None):
-        # This badge is sport specific.
-        # We need to check if the stats passed are for Tennis.
-        # Or we check the user's global tennis stats if we are not passed sport stats?
-        # The trigger will pass the updated stats.
-        # If the trigger passes UserGlobalStats, we can't check Tennis specific things easily unless we query UserSportStats.
-
-        # Better design: Pass 'user' and query what is needed, or Pass 'stats' and check if it is applicable.
-        # For 'Tennis Expert', we need UserSportStats where sport.name = 'Tennis'.
-
-        from gamification.models import UserSportStats
-
+        # This requires a query. The stats object doesn't have this count.
         user = stats.user
-        # We can optimize by checking if the current bet was Tennis.
-        if bet_selection and bet_selection.match.league.sport.name == "Tennis":
-            # Check the sport stats for this user and Tennis
-            # We can use the passed stats if they are UserSportStats and for Tennis.
-            if isinstance(stats, UserSportStats) and stats.sport.name == "Tennis":
-                 return stats.total_bets > 50
 
-            # Fallback if we passed GlobalStats but want to check Tennis
-            try:
-                sport_stats = UserSportStats.objects.get(user=user, sport__name="Tennis")
-                return sport_stats.total_bets > 50
-            except UserSportStats.DoesNotExist:
-                return False
+        # Check if the count matches.
+        # We can optimize: Only check if the current bet was > 24h.
+        if not bet_selection:
+            return False
 
-        return False
+        if not bet_selection.kickoff_time:
+            return False
+
+        # Check if current bet qualifies
+        time_diff = bet_selection.kickoff_time - bet_selection.created
+        if time_diff < timedelta(hours=24):
+            return False
+
+        # Count total qualifying bets for this user
+        # We assume valid bets (created < kickoff) are filtered already by logic,
+        # but here we specifically look for > 24h gap.
+        count = BetSelection.objects.filter(
+            ticket__user=user,
+            kickoff_time__isnull=False,
+            created__lt=F('kickoff_time') - timedelta(hours=24),
+            outcome__in=[BetSelection.Outcome.WON, BetSelection.Outcome.LOST, BetSelection.Outcome.VOID]
+        ).count()
+
+        return count >= 10
 
 BADGE_REGISTRY = [
-    SniperBadge(),
-    OnFireBadge(),
-    TennisExpertBadge(),
+    ExpertBadge(),
+    FireStreakBadge(),
+    AnticipatorBadge(),
 ]

@@ -10,10 +10,11 @@ class UserGlobalStats(TimeStampedModel):
     wins = models.PositiveIntegerField(default=0)
     losses = models.PositiveIntegerField(default=0)
     voids = models.PositiveIntegerField(default=0)
-    current_win_streak = models.PositiveIntegerField(default=0)
-    max_win_streak = models.PositiveIntegerField(default=0)
-    total_investment = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
-    total_return = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
+    current_streak = models.PositiveIntegerField(default=0)
+    max_streak = models.PositiveIntegerField(default=0)
+    units_returned = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
+    reputation_score = models.IntegerField(default=0)
+    profile_halo_color = models.CharField(max_length=20, default='none')
 
     @property
     def winrate(self):
@@ -24,8 +25,10 @@ class UserGlobalStats(TimeStampedModel):
 
     @property
     def roi(self):
-        if self.total_investment > 0:
-            return ((self.total_return - self.total_investment) / self.total_investment) * 100
+        # ROI based on units. Investment = total_bets * 1 unit.
+        investment = self.total_bets
+        if investment > 0:
+            return ((self.units_returned - Decimal(investment)) / Decimal(investment)) * 100
         return 0.0
 
     def __str__(self):
@@ -38,10 +41,9 @@ class UserSportStats(TimeStampedModel):
     wins = models.PositiveIntegerField(default=0)
     losses = models.PositiveIntegerField(default=0)
     voids = models.PositiveIntegerField(default=0)
-    current_win_streak = models.PositiveIntegerField(default=0)
-    max_win_streak = models.PositiveIntegerField(default=0)
-    total_investment = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
-    total_return = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
+    current_streak = models.PositiveIntegerField(default=0)
+    max_streak = models.PositiveIntegerField(default=0)
+    units_returned = models.DecimalField(max_digits=19, decimal_places=4, default=Decimal('0.0000'))
 
     class Meta:
         unique_together = ('user', 'sport')
@@ -55,8 +57,9 @@ class UserSportStats(TimeStampedModel):
 
     @property
     def roi(self):
-        if self.total_investment > 0:
-            return ((self.total_return - self.total_investment) / self.total_investment) * 100
+        investment = self.total_bets
+        if investment > 0:
+            return ((self.units_returned - Decimal(investment)) / Decimal(investment)) * 100
         return 0.0
 
     def __str__(self):
