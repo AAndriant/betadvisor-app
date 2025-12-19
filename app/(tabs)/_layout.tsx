@@ -14,6 +14,12 @@ export default function TabLayout() {
           title: 'Home',
         }}
       />
+      <Tabs.Screen
+        name="upload"
+        options={{
+          title: 'Scanner',
+        }}
+      />
     </Tabs>
   );
 }
