@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'finance',
     'sports',
     'tickets',
+    'gamification',
 ]
 
 MIDDLEWARE = [
