@@ -15,15 +15,25 @@ class Ticket(TimeStampedModel):
     image = models.ImageField(upload_to='tickets/')
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING_OCR)
     ocr_raw_data = models.JSONField(null=True, blank=True)
+    ocr_error_log = models.TextField(null=True, blank=True, help_text='Stores error details when OCR or match linking fails')
 
     def __str__(self):
         return f"Ticket {self.id} - {self.status}"
 
 class BetSelection(TimeStampedModel):
+    class Outcome(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        WON = 'WON', 'Won'
+        LOST = 'LOST', 'Lost'
+        VOID = 'VOID', 'Void'
+        HALF_WON = 'HALF_WON', 'Half Won'
+        HALF_LOST = 'HALF_LOST', 'Half Lost'
+
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='selections')
     match = models.ForeignKey(Match, on_delete=models.CASCADE, related_name='bet_selections')
     selection = models.CharField(max_length=50) # e.g., "Home Win", "Over 2.5"
     odds = models.DecimalField(max_digits=10, decimal_places=2)
+    outcome = models.CharField(max_length=20, choices=Outcome.choices, default=Outcome.PENDING)
 
     def __str__(self):
         return f"{self.selection} @ {self.odds}"

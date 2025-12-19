@@ -1,10 +1,19 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from tickets.views import TicketViewSet
+"""
+URL Configuration for Tickets API.
 
-router = DefaultRouter()
-router.register(r'tickets', TicketViewSet, basename='ticket')
+Endpoints:
+- POST   /api/tickets/upload/         - Upload and process ticket image (async)
+- GET    /api/tickets/<uuid>/status/  - Poll ticket OCR status
+- GET    /api/tickets/list/           - List user's tickets (paginated)
+"""
+from django.urls import path
+from .views import TicketUploadView, TicketStatusView, TicketListView
+
+
+app_name = 'tickets'
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('upload/', TicketUploadView.as_view(), name='ticket-upload'),
+    path('<uuid:pk>/status/', TicketStatusView.as_view(), name='ticket-status'),
+    path('list/', TicketListView.as_view(), name='ticket-list'),
 ]
