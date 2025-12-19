@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'finance',
     'sports',
     'tickets',
+    'gamification',
 ]
 
 MIDDLEWARE = [
@@ -80,6 +81,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': env.db('DATABASE_URL', default='postgres://betadvisor:betadvisor@db:5432/betadvisor')
 }
+
+# Stripe Configuration
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='pk_test_placeholder')
+STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY', default='sk_test_placeholder')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_placeholder')
+PLATFORM_FEE_PERCENT = env.float('PLATFORM_FEE_PERCENT', default=10.0)
+SITE_URL = env('SITE_URL', default='http://localhost:8000')
 
 
 # Password validation
