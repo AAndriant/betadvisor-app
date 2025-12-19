@@ -35,5 +35,16 @@ class BetSelection(TimeStampedModel):
     odds = models.DecimalField(max_digits=10, decimal_places=2)
     outcome = models.CharField(max_length=20, choices=Outcome.choices, default=Outcome.PENDING)
 
+    class Outcome(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        WON = 'WON', 'Won'
+        LOST = 'LOST', 'Lost'
+        VOID = 'VOID', 'Void'
+
+    outcome = models.CharField(max_length=10, choices=Outcome.choices, default=Outcome.PENDING)
+    stake = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    stats_processed = models.BooleanField(default=False)
+    kickoff_time = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return f"{self.selection} @ {self.odds}"
