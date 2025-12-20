@@ -15,6 +15,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="upload"
+        options={{
+          title: 'Upload',
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',

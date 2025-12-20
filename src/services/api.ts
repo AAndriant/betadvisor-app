@@ -59,3 +59,12 @@ export const getUserProfile = async (): Promise<UserProfile> => {
   const response = await api.get('/api/users/me/');
   return response.data;
 };
+
+export const uploadTicket = async (formData: FormData) => {
+  const response = await api.post('/api/tickets/upload/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
