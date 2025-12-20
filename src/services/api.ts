@@ -29,3 +29,31 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+export const uploadTicket = async (imageUri: string) => {
+  const formData = new FormData();
+  const filename = imageUri.split('/').pop() || 'ticket.jpg';
+
+  // Infer the type of the image
+  const match = /\.(\w+)$/.exec(filename);
+  const type = match ? `image/${match[1]}` : `image`;
+
+  // @ts-ignore: React Native FormData expects an object with uri, name, type
+  formData.append('image', { uri: imageUri, name: filename, type });
+
+  const response = await api.post('/api/tickets/upload/', formData, {
+    headers: {
+      // Explicitly undefined to let the browser/engine set the Content-Type with boundary
+      'Content-Type': undefined,
+    },
+  });
+  return response.data;
+};
+
+export const getTicketStatus = async (urlOrId: string) => {
+  // If it's a full URL (starts with http), use it directly.
+  // Otherwise, assume it's an ID and construct the URL.
+  const url = urlOrId.startsWith('http') ? urlOrId : `/api/tickets/${urlOrId}/`;
+  const response = await api.get(url);
+  return response.data;
+};
