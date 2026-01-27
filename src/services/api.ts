@@ -16,7 +16,13 @@ export const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      const token = await SecureStore.getItemAsync('accessToken');
+      let token;
+      if (Platform.OS === 'web') {
+        token = localStorage.getItem('accessToken');
+      } else {
+        token = await SecureStore.getItemAsync('accessToken');
+      }
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -85,5 +91,26 @@ export const getTicketStatus = async (urlOrId: string) => {
   // Otherwise, assume it's an ID and construct the URL.
   const url = urlOrId.startsWith('http') ? urlOrId : `/api/tickets/${urlOrId}/`;
   const response = await api.get(url);
+  return response.data;
+};
+
+export interface TicketUser {
+  username: string;
+  avatar_url?: string;
+}
+
+export interface Ticket {
+  id: string;
+  image: string;
+  total_odds: number;
+  stake: number;
+  potential_gain: number;
+  status: 'won' | 'lost' | 'pending';
+  created_at: string;
+  user: TicketUser;
+}
+
+export const getTickets = async (page: number = 1): Promise<{ results: Ticket[]; next: string | null; previous: string | null; count: number }> => {
+  const response = await api.get(`/api/tickets/list/?page=${page}`);
   return response.data;
 };

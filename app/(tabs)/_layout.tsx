@@ -9,9 +9,9 @@ export default function TabLayout() {
         headerShown: false,
       }}>
       <Tabs.Screen
-        name="home"
+        name="feed"
         options={{
-          title: 'Home',
+          title: 'Feed',
         }}
       />
       <Tabs.Screen
