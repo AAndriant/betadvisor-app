@@ -30,6 +30,36 @@ api.interceptors.request.use(
   }
 );
 
+export interface Badge {
+  id: string;
+  name: string;
+  icon_url: string;
+  is_owned: boolean;
+}
+
+export interface UserStats {
+  global_score: number;
+  win_rate: number;
+  roi: number;
+  badges: Badge[];
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  avatar_url?: string;
+}
+
+export const getUserStats = async (): Promise<UserStats> => {
+  const response = await api.get('/api/users/me/stats/');
+  return response.data;
+};
+
+export const getUserProfile = async (): Promise<UserProfile> => {
+  const response = await api.get('/api/users/me/');
+  return response.data;
+};
+
 export const uploadTicket = async (imageUri: string) => {
   const formData = new FormData();
   const filename = imageUri.split('/').pop() || 'ticket.jpg';
