@@ -7,6 +7,30 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 from .models import StripeProfile
 
+def create_stripe_product_and_price(plan):
+    """
+    Creates a Product and Price in Stripe for the given Plan.
+    Updates the Plan instance with Stripe IDs.
+    """
+    product = stripe.Product.create(
+        name=plan.titre,
+        description=plan.description
+    )
+
+    # Stripe expects amount in cents for most currencies
+    unit_amount = int(plan.price_amount * 100)
+
+    price = stripe.Price.create(
+        unit_amount=unit_amount,
+        currency='eur', # Hardcoded to EUR as per context
+        recurring={'interval': 'month'}, # Hardcoded to monthly
+        product=product.id,
+    )
+
+    plan.stripe_product_id = product.id
+    plan.stripe_price_id = price.id
+    plan.save()
+
 def create_connect_account(user):
     """
     Creates a Stripe Express account for the user and returns the account onboarding link.
