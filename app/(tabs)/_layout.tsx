@@ -17,7 +17,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="upload"
         options={{
-          title: 'Upload',
+          title: 'Scanner',
         }}
       />
       <Tabs.Screen
