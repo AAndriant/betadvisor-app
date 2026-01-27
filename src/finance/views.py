@@ -1,8 +1,13 @@
 from rest_framework.views import APIView
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from users.permissions import IsTipster
+from .models import Plan
+from .serializers import PlanSerializer
+from .services import create_stripe_product_and_price, create_checkout_session
 from .webhooks import handle_stripe_webhook
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -42,3 +47,36 @@ class ConnectRefreshView(APIView):
 class ConnectReturnView(APIView):
     def get(self, request, *args, **kwargs):
         return Response({'status': 'Connect Return'}, status=status.HTTP_200_OK)
+
+
+class PlanViewSet(viewsets.ModelViewSet):
+    serializer_class = PlanSerializer
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [permissions.AllowAny]
+        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [IsTipster]
+        elif self.action == 'subscribe':
+             permission_classes = [permissions.IsAuthenticated]
+        else:
+            permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def get_queryset(self):
+        if self.action in ['list', 'retrieve', 'subscribe']:
+            return Plan.objects.filter(is_active=True)
+        return Plan.objects.filter(tipster=self.request.user)
+
+    def perform_create(self, serializer):
+        plan = serializer.save(tipster=self.request.user)
+        create_stripe_product_and_price(plan)
+
+    @action(detail=True, methods=['post'])
+    def subscribe(self, request, pk=None):
+        plan = self.get_object()
+        try:
+             checkout_url = create_checkout_session(request.user, plan)
+             return Response({'checkout_url': checkout_url}, status=status.HTTP_200_OK)
+        except Exception as e:
+             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

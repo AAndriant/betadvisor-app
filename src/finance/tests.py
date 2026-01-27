@@ -127,3 +127,82 @@ class FinanceWebhookTests(TestCase):
         handle_stripe_webhook(json.dumps(payload), 'sig')
         self.assertEqual(StripeEvent.objects.count(), 1) # Should not create new event log
         self.assertEqual(Subscription.objects.count(), 1) # Should not create new subscription
+
+from rest_framework.test import APIClient
+from rest_framework import status
+from users.models import TipsterProfile
+
+class MonetizationTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='user_mon', email='user_mon@example.com', password='password')
+        self.tipster_user = User.objects.create_user(username='tipster_mon', email='tipster_mon@example.com', password='password')
+        self.tipster_profile = TipsterProfile.objects.create(user=self.tipster_user)
+
+    @patch('finance.services.stripe')
+    def test_plan_creation_tipster(self, mock_stripe):
+        # Mock Stripe responses
+        mock_product = MagicMock()
+        mock_product.id = 'prod_123'
+        mock_stripe.Product.create.return_value = mock_product
+
+        mock_price = MagicMock()
+        mock_price.id = 'price_123'
+        mock_stripe.Price.create.return_value = mock_price
+
+        self.client.force_authenticate(user=self.tipster_user)
+        data = {
+            'titre': 'VIP Gold',
+            'description': 'Best tips',
+            'price_amount': '29.99'
+        }
+        response = self.client.post('/finance/plans/', data) # Path might need adjustment depending on root url config
+
+        # Debug response if failed
+        if response.status_code != 201:
+            print(response.data)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        plan = Plan.objects.get(titre='VIP Gold')
+        self.assertEqual(plan.stripe_product_id, 'prod_123')
+        self.assertEqual(plan.stripe_price_id, 'price_123')
+        self.assertEqual(plan.tipster, self.tipster_user)
+
+    def test_plan_creation_non_tipster(self):
+        self.client.force_authenticate(user=self.user)
+        data = {
+            'titre': 'VIP Hack',
+            'price_amount': '1.00'
+        }
+        response = self.client.post('/finance/plans/', data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch('finance.services.stripe')
+    def test_subscribe_endpoint(self, mock_stripe):
+        # Mock customer creation for the user who subscribes
+        mock_customer = MagicMock()
+        mock_customer.id = 'cus_test_sub'
+        mock_stripe.Customer.create.return_value = mock_customer
+
+        # Create a plan first
+        plan = Plan.objects.create(
+            titre='VIP Existing',
+            price_amount=20.00,
+            tipster=self.tipster_user,
+            stripe_price_id='price_existing'
+        )
+
+        # Mock checkout session
+        mock_session = MagicMock()
+        mock_session.url = 'https://checkout.stripe.com/test'
+        mock_stripe.checkout.Session.create.return_value = mock_session
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(f'/finance/plans/{plan.id}/subscribe/')
+
+        if response.status_code != 200:
+            print(response.data)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['checkout_url'], 'https://checkout.stripe.com/test')
