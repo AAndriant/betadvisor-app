@@ -20,6 +20,12 @@ export default function TabLayout() {
           title: 'Scanner',
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profil',
+        }}
+      />
     </Tabs>
   );
 }
