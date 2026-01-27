@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadTicket, getTicketStatus } from '../../src/services/api';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function UploadTicketScreen() {
   const [image, setImage] = useState<string | null>(null);
@@ -10,8 +12,10 @@ export default function UploadTicketScreen() {
   const [result, setResult] = useState<any>(null);
   const [statusUrl, setStatusUrl] = useState<string | null>(null);
 
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
   const pickImage = async () => {
-    // No permissions request is necessary for launching the image library
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -49,6 +53,31 @@ export default function UploadTicketScreen() {
     setStatusUrl(null);
   };
 
+  const handleSuccess = (data: any) => {
+    setResult(data);
+    setAnalysisStatus('completed');
+    setUploading(false);
+
+    // Invalidate queries to refresh the feed
+    queryClient.invalidateQueries({ queryKey: ['tickets', 'list'] });
+
+    Alert.alert(
+      "Succès",
+      "Ticket analysé et ajouté avec succès !",
+      [
+        {
+          text: "Voir le feed",
+          onPress: () => {
+             // Navigate to the Feed tab
+             // Note: In Expo Router with Tabs, switching tabs can be done via push or link.
+             // router.replace('/(tabs)/') might work if index is mapped to root.
+             router.replace('/(tabs)/feed');
+          }
+        }
+      ]
+    );
+  };
+
   const handleUpload = async () => {
     if (!image) return;
 
@@ -61,14 +90,23 @@ export default function UploadTicketScreen() {
 
       const url = response.status_url || response.id;
 
-      if (url) {
-        setStatusUrl(url);
+      // Check if it's a polling URL (usually starts with http or is a path)
+      // If response has ID but no status_url, it might be immediate result if status is already there?
+      // For now, assuming if status_url is present, we poll.
+
+      if (response.status_url) {
+        setStatusUrl(response.status_url);
         setAnalysisStatus('processing');
+      } else if (url && !response.status) {
+         // Fallback if API returns just an ID but we expect a status URL?
+         // Or maybe the ID IS the thing to poll?
+         // The original code used: const url = response.status_url || response.id;
+         // Let's stick to original logic but be careful.
+         setStatusUrl(url);
+         setAnalysisStatus('processing');
       } else {
         // Maybe the result is immediate?
-        setResult(response);
-        setAnalysisStatus('completed');
-        setUploading(false);
+        handleSuccess(response);
       }
     } catch (error) {
       console.error("Upload error:", error);
@@ -87,13 +125,9 @@ export default function UploadTicketScreen() {
           const statusData = await getTicketStatus(statusUrl);
           console.log("Polling status:", statusData);
 
-          // Adjust based on actual API response structure
-          // Assuming status field is present
           if (statusData.status === 'completed' || statusData.status === 'success') {
-            setResult(statusData);
-            setAnalysisStatus('completed');
-            setUploading(false);
             clearInterval(intervalId);
+            handleSuccess(statusData);
           } else if (statusData.status === 'failed' || statusData.status === 'error') {
             setAnalysisStatus('failed');
             setUploading(false);
@@ -103,8 +137,6 @@ export default function UploadTicketScreen() {
           // If still 'processing' or 'pending', continue polling
         } catch (error) {
           console.error("Polling error:", error);
-          // Don't stop polling immediately on one error, but maybe limit retries?
-          // For now, we continue.
         }
       }, 3000);
     }
@@ -165,8 +197,8 @@ export default function UploadTicketScreen() {
 
       {analysisStatus === 'completed' && result && (
         <View className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <Text className="text-xl font-bold mb-2 text-green-700">Résultat de l'analyse</Text>
-          <Text className="text-gray-700">{JSON.stringify(result, null, 2)}</Text>
+          <Text className="text-xl font-bold mb-2 text-green-700">Succès !</Text>
+          <Text className="text-gray-700">Le ticket a été ajouté au feed.</Text>
         </View>
       )}
 
