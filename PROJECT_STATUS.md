@@ -20,9 +20,9 @@
 - **Stripe:** Webhooks & Connect setup (Infrastructure ok), Payout non automatique.
 
 **CRITICAL DEBT (P0 - TO FIX NOW):**
-- [ ] **Data Integrity:** Doublons dans le modèle BetSelection (Classe Outcome définie 2 fois).
-- [ ] **Business Logic:** Absence de distinction User/Tipster (Manque modèle TipsterProfile).
-- [ ] **Security:** Clés API Stripe non sécurisées au démarrage (Pas de Fail-fast).
+- [x] **Data Integrity:** Doublons dans le modèle BetSelection (Classe Outcome définie 2 fois).
+- [x] **Business Logic:** Absence de distinction User/Tipster (Manque modèle TipsterProfile).
+- [x] **Security:** Clés API Stripe non sécurisées au démarrage (Pas de Fail-fast).
 
 ### 📱 MOBILE (Expo)
 - **Status:** Prototype Technique (30%).
@@ -37,7 +37,7 @@
 
 ## 3. 🗺 ACTIVE ROADMAP (Immediate Next Steps)
 
-### STEP 1: BACKEND SANITIZATION (Now)
+### STEP 1: BACKEND SANITIZATION (COMPLETED)
 **Goal:** Rendre la base de données propre avant d'injecter du trafic.
 
 **Tasks:**
