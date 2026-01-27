@@ -24,6 +24,11 @@
 - [x] **Business Logic:** Absence de distinction User/Tipster (Manque modèle TipsterProfile).
 - [x] **Security:** Clés API Stripe non sécurisées au démarrage (Pas de Fail-fast).
 
+### 💰 BUSINESS LOGIC (Monetization)
+- **API Plans:** Active (`/api/finance/plans/`).
+- **Permissions:** `IsTipster` active pour la gestion des plans.
+- **Stripe Sync:** Création synchrone Produits/Prix Stripe.
+
 ### 📱 MOBILE (Expo)
 - **Status:** Prototype Technique (30%).
 - **Architecture:** Expo Router, NativeWind, React Query.
