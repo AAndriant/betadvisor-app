@@ -12,7 +12,7 @@ export default function Index() {
 
         if (accessToken) {
             // Redirect to the home tab
-            router.replace('/(tabs)/home');
+            router.replace('/(tabs)/feed');
         } else {
             router.replace('/login');
         }
