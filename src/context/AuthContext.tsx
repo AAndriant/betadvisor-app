@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '../services/api';
 
@@ -25,7 +26,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const loadToken = async () => {
       try {
-        const token = await SecureStore.getItemAsync('accessToken');
+        let token;
+        if (Platform.OS === 'web') {
+          token = localStorage.getItem('accessToken');
+        } else {
+          token = await SecureStore.getItemAsync('accessToken');
+        }
+
         if (token) {
           setAccessToken(token);
           // Optionally here we could fetch user profile if the token is valid
@@ -53,10 +60,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const response = await api.post('/api/auth/token/', { username, password });
       const { access, refresh } = response.data;
 
-      await SecureStore.setItemAsync('accessToken', access);
-      // Ideally store refresh token too if needed, but requirements mention accessToken
-      if (refresh) {
-          await SecureStore.setItemAsync('refreshToken', refresh);
+      if (Platform.OS === 'web') {
+        localStorage.setItem('accessToken', access);
+        if (refresh) localStorage.setItem('refreshToken', refresh);
+      } else {
+        await SecureStore.setItemAsync('accessToken', access);
+        if (refresh) {
+            await SecureStore.setItemAsync('refreshToken', refresh);
+        }
       }
 
       setAccessToken(access);
@@ -72,8 +83,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
-      await SecureStore.deleteItemAsync('accessToken');
-      await SecureStore.deleteItemAsync('refreshToken');
+      if (Platform.OS === 'web') {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      } else {
+        await SecureStore.deleteItemAsync('accessToken');
+        await SecureStore.deleteItemAsync('refreshToken');
+      }
       setAccessToken(null);
       setUser(null);
     } catch (error) {
