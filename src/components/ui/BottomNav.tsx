@@ -1,60 +1,47 @@
-import React from 'react';
-import { View, Pressable, Platform } from 'react-native';
-import { Home, PlusSquare } from 'lucide-react-native';
+import { View, TouchableOpacity } from 'react-native';
+import { Home, Search, PlusSquare, Calendar, User } from 'lucide-react-native';
 import { HaloAvatar } from './HaloAvatar';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, usePathname } from 'expo-router';
 
-export function BottomNav({ state, descriptors, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+export function BottomNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const navItems = [
+    { id: 'feed', icon: Home, route: '/(tabs)/' }, // Feed est l'index
+    { id: 'explore', icon: Search, route: '/explore' },
+    { id: 'upload', icon: PlusSquare, route: '/(tabs)/upload' }, // Scanner
+    { id: 'events', icon: Calendar, route: '/events' },
+    { id: 'profile', icon: User, route: '/(tabs)/profile' },
+  ];
 
   return (
-    <BlurView
-        intensity={80}
-        tint="dark"
-        className="absolute bottom-0 left-0 right-0 border-t border-white/10"
-        style={{ paddingBottom: insets.bottom }}
-    >
-      <View className="flex-row items-center justify-around h-16 px-2 bg-slate-950/80">
-        {state.routes.map((route, index) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+    <View className="absolute bottom-0 left-0 right-0 h-20 flex-row items-center justify-around border-t border-white/10 bg-slate-950/90 pb-5 pt-2">
+      {navItems.map((item) => {
+        const isActive = pathname === item.route || (item.id === 'feed' && pathname === '/');
+        const isUpload = item.id === 'upload';
+        const isProfile = item.id === 'profile';
 
-          const onPress = () => {
-            const event = navigation.emit({
-              type: 'tabPress',
-              target: route.key,
-              canPreventDefault: true,
-            });
-
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          };
-
-          let icon;
-          if (route.name === 'feed') {
-             icon = <Home size={24} color={isFocused ? "white" : "#64748b"} />;
-          } else if (route.name === 'upload') {
-             icon = <PlusSquare size={24} color={isFocused ? "white" : "#64748b"} />;
-          } else if (route.name === 'profile') {
-             icon = <HaloAvatar size="sm" variant={isFocused ? 'gold' : 'gray'} />;
-          }
-
-          return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              className="items-center justify-center p-2"
-              accessibilityRole="button"
-              accessibilityState={isFocused ? { selected: true } : {}}
-            >
-              {icon}
-            </Pressable>
-          );
-        })}
-      </View>
-    </BlurView>
+        return (
+          <TouchableOpacity
+            key={item.id}
+            onPress={() => router.push(item.route as any)}
+            className={`items-center justify-center ${isUpload ? 'mb-6' : ''}`}
+          >
+            {isProfile ? (
+              <View className={isActive ? "rounded-full border-2 border-indigo-500" : ""}>
+                <HaloAvatar size="sm" variant="gold" />
+              </View>
+            ) : (
+              <item.icon
+                size={isUpload ? 40 : 24}
+                color={isActive ? '#6366f1' : '#94a3b8'} // Indigo-500 vs Slate-400
+                fill={isActive && !isUpload ? '#6366f1' : 'transparent'}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 }
