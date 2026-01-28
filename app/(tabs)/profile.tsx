@@ -1,108 +1,99 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AvatarHalo from '../../src/components/AvatarHalo';
-import { getUserStats, getUserProfile, UserStats, UserProfile, Badge } from '../../src/services/api';
+import { HaloAvatar } from '../../src/components/ui/HaloAvatar';
+import { StreakWidget } from '../../src/components/ui/StreakWidget';
+import { ProfileStatsHeader } from '../../src/components/ProfileHeader';
+import { ProfileTabs } from '../../src/components/ui/ProfileTabs';
+import { LockedContentOverlay } from '../../src/components/LockedContentOverlay';
+
+// Mock data for grid
+const MOCK_IMAGES = [
+  'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1579952363873-27f3bde9be2b?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1593341646782-e0b495cffd32?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1518091043644-c1d4457512c6?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1556906781-9a412961c28c?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1622838320002-dbb6c623d306?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+];
 
 export default function ProfileScreen() {
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'grid' | 'stats' | 'locked'>('grid');
 
-  const fetchData = async () => {
-    try {
-      const [statsData, profileData] = await Promise.all([
-        getUserStats(),
-        getUserProfile(),
-      ]);
-      setStats(statsData);
-      setProfile(profileData);
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Hardcoded user data as per instruction "Assemble these components"
+  const user = {
+    name: "Alex Thompson",
+    username: "@alexbet",
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=800&q=80",
+    streak: 12
   };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchData();
-  };
-
-  if (loading) {
-    return (
-      <View className="flex-1 justify-center items-center bg-white dark:bg-black">
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
-
-  // Fallbacks if data is missing (though interface suggests they are mandatory except avatar)
-  const score = stats?.global_score ?? 0;
-  const winRate = stats?.win_rate ?? 0;
-  const roi = stats?.roi ?? 0;
-  const badges = stats?.badges ?? [];
-  const username = profile?.username ?? 'User';
 
   return (
-    <SafeAreaView className="flex-1 bg-white dark:bg-black">
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: 20 }}
-        refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Header Section */}
-        <View className="items-center mt-6 mb-4">
-          <AvatarHalo avatarUrl={profile?.avatar_url} score={score} />
-          <Text className="text-xl font-bold mt-2 text-black dark:text-white">{username}</Text>
+        <View className="items-center mt-6 px-4">
+           {/* Avatar & Name */}
+           <View className="items-center mb-4">
+              <HaloAvatar
+                imageUri={user.avatar}
+                size="lg"
+                variant="gold"
+                className="mb-3"
+              />
+              <Text className="text-2xl font-bold text-white">{user.name}</Text>
+              <Text className="text-slate-400">{user.username}</Text>
+           </View>
+
+           {/* Streak Widget */}
+           <View className="mb-8">
+              <StreakWidget currentStreak={user.streak} />
+           </View>
+
+           {/* Stats Header */}
+           <ProfileStatsHeader />
         </View>
 
-        {/* KPIs Section */}
-        <View className="flex-row justify-around mx-4 mb-8 bg-gray-50 dark:bg-gray-900 p-4 rounded-xl shadow-sm">
-          <View className="items-center">
-            <Text className="text-gray-500 dark:text-gray-400 text-sm uppercase font-semibold">Win Rate</Text>
-            <Text className="text-2xl font-bold text-black dark:text-white">{winRate}%</Text>
-          </View>
-          <View className="w-[1px] bg-gray-200 dark:bg-gray-700" />
-          <View className="items-center">
-            <Text className="text-gray-500 dark:text-gray-400 text-sm uppercase font-semibold">ROI</Text>
-            <Text className={`text-2xl font-bold ${roi >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {roi > 0 ? '+' : ''}{roi}%
-            </Text>
-          </View>
+        {/* Tabs */}
+        <View className="mt-8">
+            <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
 
-        {/* Badges Section */}
-        <View className="px-4">
-          <Text className="text-lg font-bold mb-4 text-black dark:text-white">Badges</Text>
-          {badges.length === 0 ? (
-            <Text className="text-gray-400 italic">No badges yet.</Text>
-          ) : (
-            <View className="flex-row flex-wrap gap-4">
-              {badges.map((badge) => (
-                <View key={badge.id} className={`items-center w-1/4 mb-4 ${!badge.is_owned ? 'opacity-40' : ''}`}>
-                    <View className="w-16 h-16 bg-gray-200 rounded-full items-center justify-center overflow-hidden mb-2">
-                        {badge.icon_url ? (
-                            <Image source={{ uri: badge.icon_url }} className="w-full h-full" resizeMode="cover" />
-                        ) : (
-                             <Text className="text-xs text-gray-500">{badge.name[0]}</Text>
-                        )}
-                    </View>
-                  <Text className="text-xs text-center text-gray-700 dark:text-gray-300" numberOfLines={2}>
-                    {badge.name}
-                  </Text>
+        {/* Content */}
+        <View className="p-1">
+            {activeTab === 'grid' && (
+                <View className="flex-row flex-wrap">
+                    {MOCK_IMAGES.map((img, i) => (
+                        <View key={i} className="w-1/3 p-0.5 aspect-square">
+                            <Image source={{ uri: img }} className="w-full h-full rounded-sm" />
+                        </View>
+                    ))}
                 </View>
-              ))}
-            </View>
-          )}
+            )}
+
+            {activeTab === 'locked' && (
+                <View className="p-4">
+                    <LockedContentOverlay tipsterName={user.name}>
+                         {/* Content to be blurred */}
+                         <View className="gap-2">
+                             <View className="h-40 w-full bg-slate-800 rounded-lg" />
+                             <View className="h-20 w-full bg-slate-800 rounded-lg" />
+                             <View className="h-60 w-full bg-slate-800 rounded-lg" />
+                         </View>
+                    </LockedContentOverlay>
+                </View>
+            )}
+
+             {activeTab === 'stats' && (
+                <View className="p-8 items-center">
+                    <Text className="text-slate-500">More detailed stats coming soon...</Text>
+                </View>
+            )}
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
