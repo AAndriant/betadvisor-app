@@ -1,10 +1,11 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { BottomNav } from '../../src/components/ui/BottomNav';
 
 export default function TabLayout() {
   return (
     <Tabs
+      tabBar={props => <BottomNav {...props} />}
       screenOptions={{
         headerShown: false,
       }}>
