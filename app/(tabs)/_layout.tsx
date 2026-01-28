@@ -5,7 +5,7 @@ import { BottomNav } from '../../src/components/ui/BottomNav';
 export default function TabLayout() {
   return (
     <Tabs
-      tabBar={props => <BottomNav {...props} />}
+      tabBar={() => <BottomNav />}
       screenOptions={{
         headerShown: false,
       }}>
