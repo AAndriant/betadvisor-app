@@ -1,28 +1,39 @@
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Lock } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Lock } from 'lucide-react-native';
 
-export function LockedContentOverlay({ tipsterName }: { tipsterName: string }) {
+interface LockedContentOverlayProps {
+  price?: string;
+  onUnlock: () => void;
+}
+
+export const LockedContentOverlay: React.FC<LockedContentOverlayProps> = ({ price = "9.99€", onUnlock }) => {
   return (
-    <View className="m-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
-      <View className="h-80 w-full items-center justify-center">
-         {/* Background Fake Content (Blur) */}
-         <View className="absolute inset-0 bg-slate-900 opacity-50" />
-         <BlurView intensity={20} className="absolute inset-0" />
+    <View style={StyleSheet.absoluteFill} className="justify-center items-center overflow-hidden rounded-xl">
+      <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
 
-         {/* Overlay Card */}
-         <View className="mx-6 w-full max-w-xs rounded-2xl border border-white/10 bg-slate-900/90 p-6 items-center shadow-xl">
-            <View className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-500 shadow-lg">
-              <Lock size={28} color="white" />
-            </View>
-            <Text className="mb-5 text-center text-sm text-slate-300">
-              Débloquez les pronos de <Text className="font-bold text-white">{tipsterName}</Text>
+      <View className="bg-slate-900/90 p-6 rounded-2xl border border-slate-700 items-center shadow-2xl z-10 w-3/4">
+        <View className="bg-slate-800 p-4 rounded-full mb-4">
+            <Lock size={32} color="#fbbf24" />
+        </View>
+
+        <Text className="text-white font-bold text-lg text-center mb-1">
+            Analyse Premium
+        </Text>
+        <Text className="text-slate-400 text-sm text-center mb-6">
+            Abonne-toi pour voir ce pronostic.
+        </Text>
+
+        <TouchableOpacity
+            onPress={onUnlock}
+            className="w-full bg-emerald-500 py-3 rounded-lg flex-row justify-center items-center"
+        >
+            <Text className="text-white font-bold uppercase text-sm">
+                Débloquer ({price}/mois)
             </Text>
-            <TouchableOpacity className="w-full rounded-xl bg-indigo-600 px-5 py-3">
-              <Text className="text-center font-semibold text-white">S'abonner – 9.99€/mo</Text>
-            </TouchableOpacity>
-         </View>
+        </TouchableOpacity>
       </View>
     </View>
-  )
-}
+  );
+};
