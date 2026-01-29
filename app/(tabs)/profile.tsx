@@ -1,87 +1,67 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, ScrollView, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { HaloAvatar } from '../../src/components/ui/HaloAvatar';
-import { StreakWidget } from '../../src/components/ui/StreakWidget';
 import { ProfileHeader } from '../../src/components/ProfileHeader';
-import { ProfileTabs } from '../../src/components/ui/ProfileTabs';
+import { TicketCard } from '../../src/components/ui/TicketCard';
 import { LockedContentOverlay } from '../../src/components/LockedContentOverlay';
-import { TicketCard } from '../../src/components/TicketCard';
-import { Ticket } from '../../src/services/api';
 
-const mockUser = {
-  username: "BetMaster",
-  avatarUrl: "https://i.pravatar.cc/150?u=BetMaster",
-  currentStreak: 12
+// Mock Data
+const MOCK_USER = {
+  name: "Alex Betting",
+  handle: "alex_bet",
+  role: "TIPSTER" as const,
+  isVerified: true,
+  stats: { roi: 12.5, winRate: 68, followers: 1405 }
 };
 
-// @ts-ignore
-const mockTicket: Ticket = {
-  id: "TICK-1234-5678",
-  image: "",
-  total_odds: 4.5,
-  stake: 50,
-  potential_gain: 225,
-  status: 'won',
-  created_at: new Date().toISOString(),
-  user: {
-    username: mockUser.username,
-    avatar_url: mockUser.avatarUrl
-  }
-};
+const MOCK_TICKETS = [
+  { id: '1', match: 'PSG vs OM', odds: 1.85, stake: 100, status: 'WIN', date: '2h ago', isPremium: false },
+  { id: '2', match: 'Lakers vs Bulls', odds: 2.10, stake: 100, status: 'PENDING', date: '5h ago', isPremium: true },
+  { id: '3', match: 'Nadal vs Djokovic', odds: 1.50, stake: 200, status: 'LOSS', date: '1d ago', isPremium: false },
+];
 
 export default function ProfileScreen() {
-  const [activeTab, setActiveTab] = useState<'grid' | 'stats' | 'locked'>('grid');
+  const [activeTab, setActiveTab] = useState('Bets');
+  const isSubscriber = false;
 
   return (
-    <ScrollView className="flex-1 bg-slate-950">
-      <SafeAreaView edges={['top']} className="flex-1">
-          {/* Header Section */}
-          <View className="items-center pt-6 pb-6 px-4 space-y-4">
-            <HaloAvatar
-              size="lg"
-              variant="diamond"
-              imageUri={mockUser.avatarUrl}
-              alt={mockUser.username}
-            />
-            <View className="items-center space-y-1">
-              <Text className="text-2xl font-bold text-white">{mockUser.username}</Text>
-              <Text className="text-slate-400">@betmaster_king</Text>
-            </View>
-            <StreakWidget currentStreak={mockUser.currentStreak} />
-          </View>
+    <SafeAreaView className="flex-1 bg-slate-950 pb-24">
+      <ScrollView showsVerticalScrollIndicator={false}>
 
-          {/* Stats Header from Task 1 */}
-          <View className="items-center pb-6">
-            <ProfileHeader />
-          </View>
+        <ProfileHeader user={MOCK_USER} />
 
-          {/* Tabs */}
-          <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        <View className="flex-row border-b border-slate-800 px-4 mt-2">
+            {['Bets', 'Stats', 'Media'].map((tab) => (
+                <TouchableOpacity
+                    key={tab}
+                    onPress={() => setActiveTab(tab)}
+                    className={`mr-6 pb-3 ${activeTab === tab ? 'border-b-2 border-emerald-500' : ''}`}
+                >
+                    <Text className={`font-medium ${activeTab === tab ? 'text-white' : 'text-slate-500'}`}>
+                        {tab}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
 
-          {/* Content Area */}
-          <View className="p-4 pb-24">
-            {activeTab === 'locked' ? (
-              <LockedContentOverlay tipsterName={mockUser.username} />
-            ) : (
-              <View className="gap-4">
-                 {/* Mock List of Tickets */}
-                 <TicketCard ticket={mockTicket} likes={243} comments={42} />
-                 <TicketCard
-                    ticket={{
-                        ...mockTicket,
-                        id: "TICK-9876",
-                        status: 'lost',
-                        total_odds: 12.4,
-                        potential_gain: 0
-                    }}
-                    likes={89}
-                    comments={15}
-                />
-              </View>
-            )}
-          </View>
-      </SafeAreaView>
-    </ScrollView>
+        <View className="p-4 gap-4">
+            {MOCK_TICKETS.map((ticket) => (
+                <View key={ticket.id} className="relative">
+                     <TicketCard
+                        title={ticket.match}
+                        odds={ticket.odds}
+                        status={ticket.status as any}
+                        roi={null}
+                     />
+
+                     {ticket.isPremium && !isSubscriber && (
+                         <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />
+                     )}
+                </View>
+            ))}
+        </View>
+
+      </ScrollView>
+    </SafeAreaView>
   );
 }
