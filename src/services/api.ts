@@ -114,3 +114,13 @@ export const getTickets = async (page: number = 1): Promise<{ results: Ticket[];
   const response = await api.get(`/api/tickets/list/?page=${page}`);
   return response.data;
 };
+
+export const fetchMyProfile = async () => {
+  try {
+    const { data } = await api.get('/api/users/me/');
+    return data;
+  } catch (error) {
+    console.error("Erreur fetchMyProfile:", error);
+    throw error;
+  }
+};
