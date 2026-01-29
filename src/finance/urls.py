@@ -1,15 +1,3 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import StripeWebhookView, SuccessView, CancelView, ConnectRefreshView, ConnectReturnView, PlanViewSet
+from django.urls import path
 
-router = DefaultRouter()
-router.register(r'plans', PlanViewSet, basename='plan')
-
-urlpatterns = [
-    path('webhook/stripe/', StripeWebhookView.as_view(), name='stripe_webhook'),
-    path('success/', SuccessView.as_view(), name='success'),
-    path('cancel/', CancelView.as_view(), name='cancel'),
-    path('connect/refresh/', ConnectRefreshView.as_view(), name='connect_refresh'),
-    path('connect/return/', ConnectReturnView.as_view(), name='connect_return'),
-    path('', include(router.urls)),
-]
+urlpatterns = []
