@@ -24,9 +24,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
       {/* Top Row: Avatar & Actions */}
       <View className="flex-row items-center justify-between mb-4">
         <HaloAvatar
-          imageUri={user.avatarUrl}
+          uri={user.avatarUrl}
+          fallback={user.name[0]}
           size="lg"
-          variant={user.role === 'TIPSTER' ? 'gold' : 'gray'}
+          premium={user.role === 'TIPSTER'}
         />
 
         <View className="flex-row gap-4">
@@ -49,7 +50,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
         <Text className="text-slate-400 text-sm">@{user.handle} • Paris Sportifs</Text>
       </View>
 
-      {/* High-Level Stats */}
+      {/* High-Level Stats (Unit Economics) */}
       {user.role === 'TIPSTER' && user.stats && (
         <View className="flex-row gap-3 mt-2">
             <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
