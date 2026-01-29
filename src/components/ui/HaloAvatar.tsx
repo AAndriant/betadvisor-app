@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Image } from 'react-native';
+import { View, Image, Text } from 'react-native';
 import { User } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -14,19 +14,28 @@ type HaloVariant = 'gray' | 'bronze' | 'silver' | 'gold' | 'diamond';
 
 interface HaloAvatarProps {
   imageUri?: string;
+  uri?: string;
   alt?: string;
+  fallback?: string;
   variant?: HaloVariant;
+  premium?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
 export function HaloAvatar({
   imageUri,
+  uri,
   alt = 'Avatar',
+  fallback,
   variant = 'gray',
+  premium,
   size = 'md',
   className,
 }: HaloAvatarProps) {
+  const finalUri = uri || imageUri;
+  const finalVariant = premium ? 'gold' : variant;
+
   const opacity = useSharedValue(1);
 
   useEffect(() => {
@@ -59,6 +68,12 @@ export function HaloAvatar({
     lg: 32,
   };
 
+  const textSizes = {
+      sm: 'text-xs',
+      md: 'text-base',
+      lg: 'text-xl',
+  };
+
   const haloColors: Record<HaloVariant, string> = {
     gray: 'bg-gray-400',
     bronze: 'bg-orange-700',
@@ -73,7 +88,7 @@ export function HaloAvatar({
       <Animated.View
         className={cn(
           'absolute inset-0 rounded-full',
-          haloColors[variant]
+          haloColors[finalVariant]
         )}
         style={animatedStyle}
       />
@@ -86,16 +101,20 @@ export function HaloAvatar({
               sizeClasses[size]
             )}
           >
-          {imageUri ? (
+          {finalUri ? (
               <Image
-              source={{ uri: imageUri }}
+              source={{ uri: finalUri }}
                 accessibilityLabel={alt}
                 className="w-full h-full"
                 resizeMode="cover"
               />
             ) : (
               <View className="items-center justify-center w-full h-full bg-slate-800">
-                <User size={iconSizes[size]} color="#94a3b8" />
+                {fallback ? (
+                    <Text className={cn("text-white font-bold", textSizes[size])}>{fallback}</Text>
+                ) : (
+                    <User size={iconSizes[size]} color="#94a3b8" />
+                )}
               </View>
             )}
           </View>
