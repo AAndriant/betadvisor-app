@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'core',
     'users',
     'finance',
+    'bets',
     'sports',
     'tickets',
     'gamification',
