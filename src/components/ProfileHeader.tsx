@@ -1,49 +1,78 @@
-import { View, Text } from 'react-native';
-import { Flame, Trophy, Twitter, Dribbble } from 'lucide-react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { HaloAvatar } from './ui/HaloAvatar';
+import { TrendingUp, Award, CheckCircle2 } from 'lucide-react-native';
 
-const stats = [
-  { label: "Yield", value: "18.4", suffix: "%" },
-  { label: "Winrate", value: "67.2", suffix: "%" },
-  { label: "Total Profit", value: "$12,847", suffix: "" },
-]
-
-const badges = [
-  { icon: Dribbble, label: "Expert Tennis", color: "text-yellow-400", bg: "bg-yellow-400/10", ring: "border-yellow-400/30" },
-  { icon: Flame, label: "Hot Streak", color: "text-orange-400", bg: "bg-orange-400/10", ring: "border-orange-400/30" },
-  { icon: Twitter, label: "Early Bird", color: "text-sky-400", bg: "bg-sky-400/10", ring: "border-sky-400/30" },
-]
-
-export function ProfileHeader() {
-  return (
-    <View className="w-full max-w-2xl space-y-6 px-4 pt-4">
-      {/* Stats Row */}
-      <View className="flex-row justify-between gap-2">
-        {stats.map((stat) => (
-          <View key={stat.label} className="flex-1 items-center rounded-lg border border-slate-800 bg-slate-900 p-4">
-            <Text className="text-2xl font-bold text-white">
-              {stat.value}
-              {stat.suffix && <Text className="text-lg text-slate-500">{stat.suffix}</Text>}
-            </Text>
-            <Text className="mt-1 text-xs font-medium text-slate-500">{stat.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* Badges Row */}
-      <View className="flex-row justify-center gap-4 py-2">
-        {badges.map((badge) => (
-          <View key={badge.label} className="items-center gap-2">
-            <View className={`flex h-12 w-12 items-center justify-center rounded-full ${badge.bg} border ${badge.ring}`}>
-              <badge.icon
-                size={20}
-                className={badge.color}
-                color={badge.color.includes('yellow') ? '#facc15' : badge.color.includes('orange') ? '#fb923c' : '#38bdf8'}
-              />
-            </View>
-            <Text className={`text-xs font-medium ${badge.color}`}>{badge.label}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  )
+interface ProfileHeaderProps {
+  user: {
+    name: string;
+    handle: string;
+    avatarUrl?: string;
+    isVerified?: boolean;
+    role: 'TIPSTER' | 'PUNTER';
+    stats?: {
+      roi: number;
+      winRate: number;
+      followers: number;
+    };
+  };
 }
+
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
+  return (
+    <View className="px-4 pt-2 pb-6 bg-slate-950">
+      {/* Top Row: Avatar & Actions */}
+      <View className="flex-row items-center justify-between mb-4">
+        <HaloAvatar
+          imageUri={user.avatarUrl}
+          size="lg"
+          variant={user.role === 'TIPSTER' ? 'gold' : 'gray'}
+        />
+
+        <View className="flex-row gap-4">
+            <View className="items-center">
+                <Text className="text-white font-bold text-lg">{user.stats?.followers || 0}</Text>
+                <Text className="text-slate-400 text-xs">Abonnés</Text>
+            </View>
+            <TouchableOpacity className="bg-emerald-500 px-6 py-2 rounded-full justify-center">
+                <Text className="text-white font-bold text-sm">S'abonner</Text>
+            </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Identity */}
+      <View className="mb-4">
+        <View className="flex-row items-center gap-1">
+            <Text className="text-2xl font-bold text-white">{user.name}</Text>
+            {user.isVerified && <CheckCircle2 size={20} color="#10b981" fill="black" />}
+        </View>
+        <Text className="text-slate-400 text-sm">@{user.handle} • Paris Sportifs</Text>
+      </View>
+
+      {/* High-Level Stats */}
+      {user.role === 'TIPSTER' && user.stats && (
+        <View className="flex-row gap-3 mt-2">
+            <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
+                <View className="bg-emerald-500/10 p-2 rounded-lg">
+                    <TrendingUp size={20} color="#10b981" />
+                </View>
+                <View>
+                    <Text className="text-slate-400 text-xs font-medium">Yield (ROI)</Text>
+                    <Text className="text-emerald-400 font-bold text-lg">+{user.stats.roi}%</Text>
+                </View>
+            </View>
+
+            <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
+                <View className="bg-indigo-500/10 p-2 rounded-lg">
+                    <Award size={20} color="#6366f1" />
+                </View>
+                <View>
+                    <Text className="text-slate-400 text-xs font-medium">Réussite</Text>
+                    <Text className="text-white font-bold text-lg">{user.stats.winRate}%</Text>
+                </View>
+            </View>
+        </View>
+      )}
+    </View>
+  );
+};
