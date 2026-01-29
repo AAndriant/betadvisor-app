@@ -124,3 +124,22 @@ export const fetchMyProfile = async () => {
     throw error;
   }
 };
+
+export const createBet = async (formData: FormData) => {
+  try {
+    const { data } = await api.post('/api/bets/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return data;
+  } catch (error) {
+    console.error("Erreur createBet:", error);
+    throw error;
+  }
+};
+
+export const fetchBets = async () => {
+  const { data } = await api.get('/api/bets/');
+  return data;
+};
