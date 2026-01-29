@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, XCircle, Clock, TrendingUp, Heart, MessageCircle } from 'lucide-react-native';
 import { toggleLike } from '../../services/social';
@@ -14,9 +14,14 @@ interface TicketCardProps {
   commentCount: number;
   isLiked: boolean;
   onPressComment: () => void;
+  authorId?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  onPressAuthor?: () => void;
 }
 
-export function TicketCard({ title, odds, status, roi, id, likeCount, commentCount, isLiked, onPressComment }: TicketCardProps) {
+
+export function TicketCard({ title, odds, status, roi, id, likeCount, commentCount, isLiked, onPressComment, authorId, authorName, authorAvatar, onPressAuthor }: TicketCardProps) {
   const [liked, setLiked] = useState(isLiked);
   const [count, setCount] = useState(likeCount);
 
@@ -60,6 +65,28 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
           <Text className="text-white font-bold text-lg">{odds.toFixed(2)}</Text>
         </View>
       </View>
+
+      {/* Author Section */}
+      {authorName && (
+        <TouchableOpacity
+          onPress={onPressAuthor}
+          className="flex-row items-center mb-3"
+          activeOpacity={0.7}
+          disabled={!onPressAuthor}
+        >
+          {authorAvatar ? (
+            <Image
+              source={{ uri: authorAvatar }}
+              className="w-6 h-6 rounded-full bg-slate-700 mr-2"
+            />
+          ) : (
+            <View className="w-6 h-6 rounded-full bg-slate-700 mr-2 items-center justify-center">
+              <Text className="text-white text-xs font-bold">{authorName[0]?.toUpperCase()}</Text>
+            </View>
+          )}
+          <Text className="text-slate-400 text-sm">Par {authorName}</Text>
+        </TouchableOpacity>
+      )}
 
       {roi !== null && roi !== undefined && (
         <View className="flex-row items-center border-t border-slate-800 pt-3">
