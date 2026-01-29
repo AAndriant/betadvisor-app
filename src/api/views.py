@@ -11,7 +11,7 @@ class BetViewSet(viewsets.ModelViewSet):
     """
     Gère l'affichage du Feed (List) et la création de tickets (Create)
     """
-    queryset = BetTicket.objects.all().order_by('-created_at')
+    queryset = BetTicket.objects.all().select_related('author').prefetch_related('likes', 'comments').order_by('-created_at')
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     parser_classes = (MultiPartParser, FormParser) # Pour gérer l'upload d'image
 

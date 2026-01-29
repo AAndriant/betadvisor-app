@@ -21,6 +21,8 @@ services:
 
   db:
     image: postgres:15-alpine
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     # On utilise aussi le .env pour s'assurer que le mot de passe est le même que le web
