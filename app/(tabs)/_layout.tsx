@@ -1,32 +1,24 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { BottomNav } from '../../src/components/ui/BottomNav';
+import { View } from 'react-native';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      tabBar={() => <BottomNav />}
-      screenOptions={{
-        headerShown: false,
-      }}>
-      <Tabs.Screen
-        name="feed"
-        options={{
-          title: 'Feed',
+    <View className="flex-1 bg-slate-950">
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: { display: 'none' },
         }}
-      />
-      <Tabs.Screen
-        name="upload"
-        options={{
-          title: 'Scanner',
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profil',
-        }}
-      />
-    </Tabs>
+        tabBar={() => <BottomNav />}
+      >
+        <Tabs.Screen name="feed" />
+        <Tabs.Screen name="search" />
+        {/* @ts-ignore */}
+        <Tabs.Screen name="post" options={{ presentation: 'modal' }} />
+        <Tabs.Screen name="notifications" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </View>
   );
 }
