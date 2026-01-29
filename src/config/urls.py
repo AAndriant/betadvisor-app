@@ -5,10 +5,12 @@ from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from api.views import BetViewSet, MyProfileView
+from users.views import UserViewSet
 
 # Router DRF standard
 router = DefaultRouter()
 router.register(r'bets', BetViewSet, basename='bet')
+router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

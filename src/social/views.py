@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 
-from .models import Like, Comment
+from .models import Like, Comment, Follow
 from .serializers import CommentSerializer, LikeSerializer
 from bets.models import BetTicket
 
@@ -70,3 +70,42 @@ class CommentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         instance.delete()
+
+class FollowViewSet(viewsets.GenericViewSet):
+    """
+    ViewSet for handling Follow/Unfollow operations.
+    Only provides the toggle action.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['post'], url_path='toggle')
+    def toggle(self, request, pk=None):
+        """
+        Toggle follow on a user. Creates if doesn't exist, deletes if exists.
+        URL: POST /api/social/follow/{user_id}/toggle/
+        """
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        followed_user = get_object_or_404(User, pk=pk)
+        follower = request.user
+
+        # Prevent self-follow
+        if follower == followed_user:
+            return Response(
+                {'error': 'You cannot follow yourself'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        follow, created = Follow.objects.get_or_create(
+            follower=follower,
+            followed=followed_user
+        )
+        
+        if not created:
+            # Follow already existed, so delete it (unfollow)
+            follow.delete()
+            return Response({'followed': False}, status=status.HTTP_200_OK)
+        else:
+            # New follow was created
+            return Response({'followed': True}, status=status.HTTP_201_CREATED)

@@ -9,10 +9,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
     stats = serializers.SerializerMethodField()
     wallet_balance = serializers.DecimalField(source='wallet.balance', max_digits=12, decimal_places=2, read_only=True)
     avatar_url = serializers.SerializerMethodField()
+    follower_count = serializers.SerializerMethodField()
+    is_followed_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'stats', 'wallet_balance', 'avatar_url']
+        fields = ['id', 'username', 'email', 'stats', 'wallet_balance', 'avatar_url', 'follower_count', 'is_followed_by_me']
 
     def get_avatar_url(self, obj):
         return f"https://ui-avatars.com/api/?name={obj.username}&background=10b981&color=fff"
@@ -49,3 +51,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "total_bets": total_bets,
             "total_profit": round(net_profit, 2)
         }
+
+    def get_follower_count(self, obj):
+        """ Count of users following this profile """
+        return obj.followers.count()
+
+    def get_is_followed_by_me(self, obj):
+        """ Check if the current user follows this profile """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            from social.models import Follow
+            return Follow.objects.filter(follower=request.user, followed=obj).exists()
+        return False
