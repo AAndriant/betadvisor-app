@@ -5,7 +5,7 @@ import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { LockedContentOverlay } from '../../src/components/LockedContentOverlay';
 
-// Mock Data
+// Mock Data pour affichage
 const MOCK_USER = {
   name: "Alex Betting",
   handle: "alex_bet",

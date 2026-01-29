@@ -8,7 +8,7 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' }, // Cache la nav native
         }}
         tabBar={() => <BottomNav />}
       >
