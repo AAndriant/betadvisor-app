@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import BetTicket
 
 class BetTicketSerializer(serializers.ModelSerializer):
+    author_id = serializers.ReadOnlyField(source='author.id')
     author_name = serializers.ReadOnlyField(source='author.username')
     # On génère un avatar temporaire si l'utilisateur n'en a pas
     author_avatar = serializers.SerializerMethodField()
@@ -14,7 +15,7 @@ class BetTicketSerializer(serializers.ModelSerializer):
     class Meta:
         model = BetTicket
         fields = [
-            'id', 'author_name', 'author_avatar',
+            'id', 'author_id', 'author_name', 'author_avatar',
             'match_title', 'selection', 'odds', 'stake',
             'ticket_image', 'status', 'payout',
             'created_at', 'is_premium',

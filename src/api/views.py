@@ -2,6 +2,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from django_filters.rest_framework import DjangoFilterBackend
 
 from bets.models import BetTicket
 from bets.serializers import BetTicketSerializer, BetCreateSerializer
@@ -14,6 +15,8 @@ class BetViewSet(viewsets.ModelViewSet):
     queryset = BetTicket.objects.all().select_related('author').prefetch_related('likes', 'comments').order_by('-created_at')
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     parser_classes = (MultiPartParser, FormParser) # Pour gérer l'upload d'image
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['author']
 
     def get_serializer_class(self):
         if self.action == 'create':
