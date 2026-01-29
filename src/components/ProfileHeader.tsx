@@ -16,9 +16,13 @@ interface ProfileHeaderProps {
       followers: number;
     };
   };
+  isFollowed?: boolean;
+  onToggleFollow?: () => void;
+  isOwnProfile?: boolean;
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
+
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, onToggleFollow, isOwnProfile }) => {
   return (
     <View className="px-4 pt-2 pb-6 bg-slate-950">
       {/* Top Row: Avatar & Actions */}
@@ -31,21 +35,31 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
         />
 
         <View className="flex-row gap-4">
-            <View className="items-center">
-                <Text className="text-white font-bold text-lg">{user.stats?.followers || 0}</Text>
-                <Text className="text-slate-400 text-xs">Abonnés</Text>
-            </View>
-            <TouchableOpacity className="bg-emerald-500 px-6 py-2 rounded-full justify-center">
-                <Text className="text-white font-bold text-sm">S'abonner</Text>
+          <View className="items-center">
+            <Text className="text-white font-bold text-lg">{user.stats?.followers || 0}</Text>
+            <Text className="text-slate-400 text-xs">Abonnés</Text>
+          </View>
+          {!isOwnProfile && (
+            <TouchableOpacity
+              onPress={onToggleFollow}
+              className={`px-6 py-2 rounded-full justify-center ${isFollowed
+                  ? 'bg-emerald-500'
+                  : 'bg-transparent border border-slate-600'
+                }`}
+            >
+              <Text className="text-white font-bold text-sm">
+                {isFollowed ? 'Abonné' : 'Suivre'}
+              </Text>
             </TouchableOpacity>
+          )}
         </View>
       </View>
 
       {/* Identity */}
       <View className="mb-4">
         <View className="flex-row items-center gap-1">
-            <Text className="text-2xl font-bold text-white">{user.name}</Text>
-            {user.isVerified && <CheckCircle2 size={20} color="#10b981" fill="black" />}
+          <Text className="text-2xl font-bold text-white">{user.name}</Text>
+          {user.isVerified && <CheckCircle2 size={20} color="#10b981" fill="black" />}
         </View>
         <Text className="text-slate-400 text-sm">@{user.handle} • Paris Sportifs</Text>
       </View>
@@ -53,25 +67,25 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user }) => {
       {/* High-Level Stats (Unit Economics) */}
       {user.role === 'TIPSTER' && user.stats && (
         <View className="flex-row gap-3 mt-2">
-            <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
-                <View className="bg-emerald-500/10 p-2 rounded-lg">
-                    <TrendingUp size={20} color="#10b981" />
-                </View>
-                <View>
-                    <Text className="text-slate-400 text-xs font-medium">Yield (ROI)</Text>
-                    <Text className="text-emerald-400 font-bold text-lg">+{user.stats.roi}%</Text>
-                </View>
+          <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
+            <View className="bg-emerald-500/10 p-2 rounded-lg">
+              <TrendingUp size={20} color="#10b981" />
             </View>
+            <View>
+              <Text className="text-slate-400 text-xs font-medium">Yield (ROI)</Text>
+              <Text className="text-emerald-400 font-bold text-lg">+{user.stats.roi}%</Text>
+            </View>
+          </View>
 
-            <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
-                <View className="bg-indigo-500/10 p-2 rounded-lg">
-                    <Award size={20} color="#6366f1" />
-                </View>
-                <View>
-                    <Text className="text-slate-400 text-xs font-medium">Réussite</Text>
-                    <Text className="text-white font-bold text-lg">{user.stats.winRate}%</Text>
-                </View>
+          <View className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 flex-row items-center gap-3">
+            <View className="bg-indigo-500/10 p-2 rounded-lg">
+              <Award size={20} color="#6366f1" />
             </View>
+            <View>
+              <Text className="text-slate-400 text-xs font-medium">Réussite</Text>
+              <Text className="text-white font-bold text-lg">{user.stats.winRate}%</Text>
+            </View>
+          </View>
         </View>
       )}
     </View>

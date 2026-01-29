@@ -127,9 +127,11 @@ export const fetchMyProfile = async () => {
 
 export const createBet = async (formData: FormData) => {
   try {
+    // ✅ FIX: Ne PAS mettre le Content-Type explicitement pour FormData
+    // Axios/Browser va automatiquement ajouter le boundary nécessaire
     const { data } = await api.post('/api/bets/', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
     return data;

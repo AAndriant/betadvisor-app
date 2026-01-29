@@ -9,6 +9,9 @@ export default function FeedScreen() {
   const { data: bets, isLoading, error, refetch } = useFeed();
   const router = useRouter();
 
+  // 🔍 DEBUG: Inspecter la structure des données reçues du backend
+  console.log('FEED DATA:', JSON.stringify(bets, null, 2));
+
   const handleNavigateToComments = (betId: string) => {
     router.push({
       pathname: '/comments/[id]',
@@ -24,6 +27,9 @@ export default function FeedScreen() {
     </View>
   );
 
+  // ✅ FIX: Gérer la réponse paginée du backend { results: [...] }
+  const betsList = Array.isArray(bets) ? bets : (bets?.results || []);
+
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
       <View className="px-4 py-2 border-b border-slate-800">
@@ -31,7 +37,7 @@ export default function FeedScreen() {
       </View>
 
       <FlatList
-        data={bets}
+        data={betsList}
         keyExtractor={(item: any) => item.id.toString()}
         renderItem={({ item }) => (
           <View className="px-4 py-2">
@@ -45,8 +51,14 @@ export default function FeedScreen() {
               commentCount={item.comment_count || 0}
               isLiked={item.is_liked_by_me || false}
               onPressComment={() => handleNavigateToComments(item.id.toString())}
+              authorId={item.author_id}
+              authorName={item.author_name}
+              authorAvatar={item.author_avatar}
+              onPressAuthor={() => router.push({
+                pathname: '/user/[id]',
+                params: { id: item.author_id }
+              })}
             />
-            <Text className="text-slate-500 text-xs mt-1 ml-2">Par {item.author_name}</Text>
           </View>
         )}
         onRefresh={refetch}
