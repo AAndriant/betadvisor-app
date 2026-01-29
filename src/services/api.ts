@@ -143,3 +143,17 @@ export const fetchBets = async () => {
   const { data } = await api.get('/api/bets/');
   return data;
 };
+
+// Upload l'image et récupère l'URL de suivi
+export const uploadTicketImage = async (formData: FormData) => {
+  const { data } = await api.post('/tickets/upload/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data; // Attend { ticket_id: '...', status_url: '...' }
+};
+
+// Vérifie le statut
+export const pollTicketStatus = async (ticketId: string) => {
+  const { data } = await api.get(`/tickets/${ticketId}/status/`);
+  return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
+};
