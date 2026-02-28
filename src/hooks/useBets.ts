@@ -1,13 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchBets, createBet, uploadTicketImage, pollTicketStatus } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 export const useFeed = () => {
+  const { accessToken } = useAuth();
+
   return useQuery({
     queryKey: ['feed'],
     queryFn: fetchBets,
+    enabled: !!accessToken, // Ne lance la requête que si l'utilisateur est authentifié
   });
 };
 

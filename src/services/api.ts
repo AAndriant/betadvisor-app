@@ -57,12 +57,12 @@ export interface UserProfile {
 }
 
 export const getUserStats = async (): Promise<UserStats> => {
-  const response = await api.get('/api/users/me/stats/');
+  const response = await api.get('/api/me/stats/');
   return response.data;
 };
 
 export const getUserProfile = async (): Promise<UserProfile> => {
-  const response = await api.get('/api/users/me/');
+  const response = await api.get('/api/me/');
   return response.data;
 };
 
@@ -117,7 +117,7 @@ export const getTickets = async (page: number = 1): Promise<{ results: Ticket[];
 
 export const fetchMyProfile = async () => {
   try {
-    const { data } = await api.get('/api/users/me/');
+    const { data } = await api.get('/api/me/');
     return data;
   } catch (error) {
     console.error("Erreur fetchMyProfile:", error);
