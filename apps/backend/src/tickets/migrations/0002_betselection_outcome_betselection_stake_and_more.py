@@ -6,24 +6,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("tickets", "0001_initial"),
+        ("tickets", "0002_enable_trigram_and_add_error_log"),
     ]
 
     operations = [
-        migrations.AddField(
-            model_name="betselection",
-            name="outcome",
-            field=models.CharField(
-                choices=[
-                    ("PENDING", "Pending"),
-                    ("WON", "Won"),
-                    ("LOST", "Lost"),
-                    ("VOID", "Void"),
-                ],
-                default="PENDING",
-                max_length=10,
-            ),
-        ),
         migrations.AddField(
             model_name="betselection",
             name="stake",
