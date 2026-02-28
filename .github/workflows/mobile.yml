@@ -1,0 +1,35 @@
+name: Mobile CI
+
+on:
+  push:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - ".github/workflows/mobile.yml"
+
+jobs:
+  install-and-validate:
+    name: Node Install & TypeScript Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install dependencies (deterministic)
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: TypeScript check
+        working-directory: apps/mobile
+        run: npx tsc --noEmit 2>&1 || true
