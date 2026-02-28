@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'social',
     'api',
     'connect',
+    'subscriptions',
 ]
 
 MIDDLEWARE = [
