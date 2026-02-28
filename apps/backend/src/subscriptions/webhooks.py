@@ -5,6 +5,7 @@ from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from subscriptions.models import Subscription, StripeEvent
 from users.models import CustomUser
+from connect.models import ConnectedAccount
 
 logger = logging.getLogger(__name__)
 
@@ -169,9 +170,35 @@ def _handle_customer_subscription_deleted(event):
     logger.info(f"customer.subscription.deleted: updated subscription {subscription.id} status to canceled")
 
 
+def _handle_account_updated(event):
+    account = event['data']['object']
+    stripe_account_id = account.get('id')
+    charges_enabled = account.get('charges_enabled', False)
+    payouts_enabled = account.get('payouts_enabled', False)
+
+    if not stripe_account_id:
+        return
+
+    try:
+        connected_account = ConnectedAccount.objects.get(stripe_account_id=stripe_account_id)
+    except ConnectedAccount.DoesNotExist:
+        logger.error(f"account.updated: ConnectedAccount not found for stripe_account_id {stripe_account_id}")
+        return
+
+    connected_account.charges_enabled = charges_enabled
+    connected_account.payouts_enabled = payouts_enabled
+
+    if charges_enabled and payouts_enabled:
+        connected_account.onboarding_completed = True
+
+    connected_account.save()
+    logger.info(f"account.updated: updated connected_account {connected_account.id} (charges: {charges_enabled}, payouts: {payouts_enabled}, onboarding: {connected_account.onboarding_completed})")
+
+
 HANDLERS = {
     'checkout.session.completed': _handle_checkout_session_completed,
     'invoice.paid': _handle_invoice_paid,
     'invoice.payment_failed': _handle_invoice_payment_failed,
     'customer.subscription.deleted': _handle_customer_subscription_deleted,
+    'account.updated': _handle_account_updated,
 }
