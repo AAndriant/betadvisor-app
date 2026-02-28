@@ -61,12 +61,17 @@ export default function PostScreen() {
     formData.append('stake', stake);
 
     if (image) {
-      const filename = image.split('/').pop();
-      const match_regex = /\.(\w+)$/.exec(filename || '');
-      const type = match_regex ? `image/${match_regex[1]}` : `image`;
+      // Extraction propre du nom et du type pour React Native
+      const filename = image.split('/').pop() || 'ticket.jpg';
+      const match_regex = /\.(\w+)$/.exec(filename);
+      const type = match_regex ? `image/${match_regex[1]}` : `image/jpeg`;
 
-      // @ts-ignore : React Native FormData specific handling
-      formData.append('ticket_image', { uri: image, name: filename, type });
+      // @ts-ignore : TypeScript râle parfois sur le format RN, c'est normal
+      formData.append('ticket_image', {
+        uri: image,
+        name: filename,
+        type: type
+      } as any);
     }
 
     createBetMutation.mutate(formData);
