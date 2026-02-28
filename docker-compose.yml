@@ -1,8 +1,23 @@
 version: '3.8'
 
 # =============================================================
-# BetAdvisor — Monorepo Root docker-compose
+# BetAdvisor — Monorepo Root docker-compose (orienté DEV)
 # Usage : docker compose up --build
+#
+# VARIABLES D'ENVIRONNEMENT — SÉPARATION CLAIRE :
+#   apps/backend/.env.db   → variables PostgreSQL uniquement
+#   apps/backend/.env      → variables Django, Stripe, Gemini
+#
+# INFORMATION MAC SILICON (M1/M2/M3) :
+#   Le service backend utilise security_opt: seccomp:unconfined
+#   pour permettre aux threads de google-generativeai de fonctionner
+#   sur architecture ARM. Voir README section "Mac Silicon / seccomp".
+#   Sur Linux/x86, ce paramètre peut être retiré en toute sécurité.
+#
+# DEV vs PROD :
+#   Ce fichier est orienté développement local.
+#   En production, le migrate automatique doit être géré
+#   par un entrypoint dédié ou un job de déploiement séparé.
 # =============================================================
 
 services:
@@ -14,7 +29,7 @@ services:
     ports:
       - "5432:5432"
     env_file:
-      - ./apps/backend/.env
+      - ./apps/backend/.env.db # POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     healthcheck:
@@ -30,17 +45,19 @@ services:
       dockerfile: Dockerfile
     container_name: betadvisor_backend
     restart: unless-stopped
+    # DEV : migrate automatique au démarrage (acceptable en dev, non recommandé en prod)
     command: sh -c "cd src && python manage.py migrate && gunicorn --bind 0.0.0.0:8000 config.wsgi:application"
     ports:
       - "8000:8000"
     env_file:
-      - ./apps/backend/.env
+      - ./apps/backend/.env # DEBUG, SECRET_KEY, DATABASE_URL, STRIPE_*, GEMINI_API_KEY
     volumes:
       - ./apps/backend:/app
     depends_on:
       postgres:
         condition: service_healthy
-    # Fix Mac Silicon (M1/M2/M3) — permet les threads AI
+    # Fix Mac Silicon (M1/M2/M3) — permet aux threads google-generativeai de fonctionner
+    # Sur Linux x86_64 : retirer ce paramètre (non nécessaire)
     security_opt:
       - seccomp:unconfined
 

@@ -19,17 +19,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
           cache-dependency-path: apps/mobile/package-lock.json
 
-      - name: Install dependencies (deterministic)
+      - name: Install dependencies (déterministe)
         working-directory: apps/mobile
         run: npm ci
 
-      - name: TypeScript check
+      - name: Typecheck TypeScript (non-blocking)
+        # Note : Expo 54 + React Native 0.81 ont des dépendances de types
+        # qui nécessitent node_modules installé dans apps/mobile/.
+        # Le check est non-bloquant (continue-on-error) pour ne pas bloquer
+        # les PRs en cas de faux-positifs liés aux types @types/react-native.
+        # À passer BLOQUANT une fois la config tsc stabilisée.
         working-directory: apps/mobile
-        run: npx tsc --noEmit 2>&1 || true
+        run: npx tsc --noEmit
+        continue-on-error: true
