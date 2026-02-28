@@ -39,7 +39,7 @@ export default function ProfileScreen() {
           onPress={() => refetch()}
           className="bg-emerald-500 px-6 py-3 rounded-full"
         >
-            <Text className="text-white font-bold">Réessayer</Text>
+          <Text className="text-white font-bold">Réessayer</Text>
         </TouchableOpacity>
       </View>
     );
@@ -54,9 +54,9 @@ export default function ProfileScreen() {
     isVerified: true,
     avatarUrl: user.avatar_url,
     stats: {
-        roi: user.stats?.roi || 0,
-        winRate: user.stats?.win_rate || 0,
-        followers: user.stats?.total_bets || 0
+      roi: user.stats?.roi || 0,
+      winRate: user.stats?.win_rate || 0,
+      followers: user.stats?.total_bets || 0
     }
   };
 
@@ -70,38 +70,38 @@ export default function ProfileScreen() {
       >
 
         {/* Header connecté à l'API */}
-        <ProfileHeader user={formattedUser} />
+        <ProfileHeader user={formattedUser} isOwnProfile={true} />
 
         {/* Tabs Statiques */}
         <View className="flex-row border-b border-slate-800 px-4 mt-2">
-            {['Bets', 'Stats', 'Media'].map((tab) => (
-                <TouchableOpacity
-                    key={tab}
-                    onPress={() => setActiveTab(tab)}
-                    className={`mr-6 pb-3 ${activeTab === tab ? 'border-b-2 border-emerald-500' : ''}`}
-                >
-                    <Text className={`font-medium ${activeTab === tab ? 'text-white' : 'text-slate-500'}`}>
-                        {tab}
-                    </Text>
-                </TouchableOpacity>
-            ))}
+          {['Bets', 'Stats', 'Media'].map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              className={`mr-6 pb-3 ${activeTab === tab ? 'border-b-2 border-emerald-500' : ''}`}
+            >
+              <Text className={`font-medium ${activeTab === tab ? 'text-white' : 'text-slate-500'}`}>
+                {tab}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Liste des Tickets (Reste Mockée pour l'instant) */}
         <View className="p-4 gap-4">
-            {MOCK_TICKETS.map((ticket) => (
-                <View key={ticket.id} className="relative">
-                     <TicketCard
-                        title={ticket.match}
-                        odds={ticket.odds}
-                        status={ticket.status as any}
-                        roi={null}
-                     />
-                     {ticket.isPremium && !isSubscriber && (
-                         <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />
-                     )}
-                </View>
-            ))}
+          {MOCK_TICKETS.map((ticket) => (
+            <View key={ticket.id} className="relative">
+              <TicketCard
+                title={ticket.match}
+                odds={ticket.odds}
+                status={ticket.status as any}
+                roi={null}
+              />
+              {ticket.isPremium && !isSubscriber && (
+                <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />
+              )}
+            </View>
+          ))}
         </View>
 
       </ScrollView>
