@@ -57,12 +57,12 @@ export interface UserProfile {
 }
 
 export const getUserStats = async (): Promise<UserStats> => {
-  const response = await api.get('/api/users/me/stats/');
+  const response = await api.get('/api/me/stats/');
   return response.data;
 };
 
 export const getUserProfile = async (): Promise<UserProfile> => {
-  const response = await api.get('/api/users/me/');
+  const response = await api.get('/api/me/');
   return response.data;
 };
 
@@ -117,7 +117,7 @@ export const getTickets = async (page: number = 1): Promise<{ results: Ticket[];
 
 export const fetchMyProfile = async () => {
   try {
-    const { data } = await api.get('/api/users/me/');
+    const { data } = await api.get('/api/me/');
     return data;
   } catch (error) {
     console.error("Erreur fetchMyProfile:", error);
@@ -127,9 +127,11 @@ export const fetchMyProfile = async () => {
 
 export const createBet = async (formData: FormData) => {
   try {
+    // ✅ FIX: Ne PAS mettre le Content-Type explicitement pour FormData
+    // Axios/Browser va automatiquement ajouter le boundary nécessaire
     const { data } = await api.post('/api/bets/', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
     return data;
@@ -142,4 +144,18 @@ export const createBet = async (formData: FormData) => {
 export const fetchBets = async () => {
   const { data } = await api.get('/api/bets/');
   return data;
+};
+
+// Upload l'image et récupère l'URL de suivi
+export const uploadTicketImage = async (formData: FormData) => {
+  const { data } = await api.post('/tickets/upload/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data; // Attend { ticket_id: '...', status_url: '...' }
+};
+
+// Vérifie le statut
+export const pollTicketStatus = async (ticketId: string) => {
+  const { data } = await api.get(`/tickets/${ticketId}/status/`);
+  return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
 };
