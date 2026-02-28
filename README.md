@@ -11,7 +11,8 @@ betadvisor-app/
 │   │   ├── src/          # Code source Django (apps, config, manage.py)
 │   │   ├── Dockerfile
 │   │   ├── requirements.txt
-│   │   ├── .env.example
+│   │   ├── .env.example          # Variables Django, Stripe, Gemini
+│   │   ├── .env.db.example       # Variables PostgreSQL uniquement
 │   │   └── docker-compose.backend.yml  # Compose isolé (dev backend seul)
 │   └── mobile/           # Application React Native / Expo
 │       ├── app/          # Écrans (expo-router file-based)
@@ -31,12 +32,17 @@ betadvisor-app/
 ### Backend (via Docker)
 
 ```bash
-# 1. Configurer l'environnement backend
+# 1. Configurer l'environnement backend (variables Django, Stripe, Gemini)
 cp apps/backend/.env.example apps/backend/.env
 # Éditer apps/backend/.env avec vos clés réelles
 
-# 2. Lancer postgres + backend
-docker compose up --build
+# 2. Configurer l'environnement base de données (variables PostgreSQL)
+cp apps/backend/.env.db.example apps/backend/.env.db
+# Éditer apps/backend/.env.db (POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD)
+
+# 3. Lancer postgres + backend
+make up
+# ou : docker compose up --build
 
 # L'API est disponible sur : http://localhost:8000
 # Admin Django : http://localhost:8000/admin
@@ -59,7 +65,7 @@ npx expo start
 
 ## Variables d'Environnement
 
-### Backend (`apps/backend/.env`)
+### Backend — Variables Django (`apps/backend/.env`)
 
 Basé sur `apps/backend/.env.example` :
 
@@ -67,11 +73,24 @@ Basé sur `apps/backend/.env.example` :
 |----------|-------------|
 | `DEBUG` | `True` en dev, `False` en prod |
 | `SECRET_KEY` | Clé secrète Django (longue et aléatoire) |
-| `DATABASE_URL` | URL PostgreSQL complète |
+| `DATABASE_URL` | `postgres://user:pass@postgres:5432/db` (host interne Docker) |
 | `GEMINI_API_KEY` | Clé Google Gemini AI (OCR tickets) |
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe |
 | `STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe |
 | `STRIPE_WEBHOOK_SECRET` | Secret webhook Stripe |
+
+### Backend — Variables PostgreSQL (`apps/backend/.env.db`)
+
+Basé sur `apps/backend/.env.db.example` :
+
+| Variable | Description |
+|----------|-------------|
+| `POSTGRES_DB` | Nom de la base de données |
+| `POSTGRES_USER` | Utilisateur PostgreSQL |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL |
+
+> ⚠️ `DATABASE_URL` dans `.env` doit utiliser les mêmes valeurs que `.env.db`.
+> Le host doit être `postgres` (nom du service Docker), pas `localhost`.
 
 ### Mobile (`apps/mobile/.env`)
 
@@ -90,19 +109,52 @@ Les workflows GitHub Actions utilisent du **path filtering** :
 - **`backend.yml`** : déclenché uniquement si `apps/backend/**` ou le workflow lui-même change
 - **`mobile.yml`** : déclenché uniquement si `apps/mobile/**` ou le workflow lui-même change
 
+## Makefile — Commandes rapides
+
+```bash
+make help          # Lister toutes les commandes
+make up            # Lancer postgres + backend (build inclus)
+make down          # Arrêter tous les services
+make logs          # Suivre les logs (200 lignes)
+make migrate       # Appliquer les migrations Django
+make backend-sh    # Ouvrir un shell dans le container backend
+make mobile        # npm ci + expo start
+make ci-mobile     # Typecheck mobile (npm ci + tsc)
+make ci-backend    # Lint backend (compileall + manage.py check)
+```
+
 ## Notes techniques
+
+### Dev vs Prod
+
+> ⚠️ Le `docker-compose.yml` root est **orienté développement local**.
+
+- La migration automatique (`migrate` avant `gunicorn`) est acceptable en dev pour simplifier le démarrage.
+- **En production**, les migrations doivent être exécutées manuellement ou via un entrypoint/job dédié, séparément du processus applicatif.
+- Pour un environnement de staging/production, utiliser un outil comme Railway, Render, ou un pipeline de déploiement avec `python manage.py migrate` en pre-deploy step.
+
+### Mac Silicon (M1/M2/M3) — seccomp:unconfined
+
+Le `docker-compose.yml` root inclut `security_opt: seccomp:unconfined` sur le service `backend`.
+
+**Pourquoi :** La librairie `google-generativeai` (utilisée pour l'OCR tickets) crée des threads natifs qui nécessitent des appels système bloqués par défaut par le profil seccomp de Docker sur macOS ARM.
+
+**Impact :** Ce paramètre désactive le filtrage des appels système pour ce container. En développement local, ce risque est acceptable. En production sur Linux x86_64, ce paramètre n'est pas nécessaire et peut (doit) être retiré.
+
+**Pour retirer :** Si vous êtes sur Linux x86_64, supprimer le bloc dans `docker-compose.yml` :
+```yaml
+# Retirer ces lignes si non nécessaire :
+security_opt:
+  - seccomp:unconfined
+```
 
 ### Historique Git
 
 Le monorepo conserve l'**historique complet** des deux dépôts source via `git merge --allow-unrelated-histories`. Les commits originaux sont visibles via `git log --graph --all`.
 
-### Migrations Django — Note de migration
+### Migrations Django — Note documentée
 
-Le conflit de migrations `tickets/0002` (deux branches parallèles de migration créées par Jules agent) a été résolu **avant la migration monorepo** via `--fake` apply de la branche non appliquée. Toutes les migrations sont marquées `[X]` en DB. Voir le rapport d'audit pré-monorepo pour les détails.
-
-### Mac Silicon (M1/M2/M3)
-
-Le `docker-compose.yml` root inclut `security_opt: seccomp:unconfined` pour permettre aux threads de la librairie Google AI de fonctionner correctement sur architecture ARM.
+Le conflit de migrations `tickets/0002` (deux branches parallèles de migration créées par Jules agent) a été résolu **avant la migration monorepo** via `--fake` apply de la branche non appliquée. Toutes les migrations sont marquées `[X]` en DB. Voir `CONTRIBUTING.md` section "Règles Migrations" pour la procédure à suivre.
 
 ## Accès API principaux
 

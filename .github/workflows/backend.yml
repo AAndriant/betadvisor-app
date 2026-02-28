@@ -11,8 +11,11 @@ on:
       - ".github/workflows/backend.yml"
 
 jobs:
+  # ─────────────────────────────────────────────────────
+  # JOB 1 : Lint & syntaxe (rapide, sans DB)
+  # ─────────────────────────────────────────────────────
   lint-and-validate:
-    name: Python Lint & Validate
+    name: Python Lint & Syntax Check
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +35,7 @@ jobs:
       - name: Compile check (syntax validation)
         run: python -m compileall apps/backend/src -q
 
-      - name: Django check (structural validation)
+      - name: Django system check (SQLite, sans DB réelle)
         env:
           DEBUG: "True"
           SECRET_KEY: "ci-dummy-secret-key-not-for-production"
@@ -44,5 +47,85 @@ jobs:
           ALLOWED_HOSTS: "localhost"
         run: |
           cd apps/backend/src
-          python manage.py check --deploy --fail-level WARNING 2>&1 || true
           python manage.py check
+
+  # ─────────────────────────────────────────────────────
+  # JOB 2 : Vérification migrations avec Postgres réel
+  # Note : psycopg2-binary est compatible avec postgres:15
+  # Note : l'extension trigram (pg_trgm) est disponible
+  #        dans postgres:15-alpine via les modules contrib.
+  # ─────────────────────────────────────────────────────
+  db-check:
+    name: Django Migrate (Postgres 15)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: betadvisor_ci
+          POSTGRES_USER: betadvisor
+          POSTGRES_PASSWORD: betadvisor_ci_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: apps/backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r apps/backend/requirements.txt
+
+      - name: Django check contre Postgres
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: |
+          cd apps/backend/src
+          python manage.py check
+
+      - name: Appliquer les migrations (--noinput)
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: |
+          cd apps/backend/src
+          python manage.py migrate --noinput
+
+      - name: Vérifier état migrations tickets
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: |
+          cd apps/backend/src
+          python manage.py showmigrations tickets

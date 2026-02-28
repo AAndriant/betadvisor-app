@@ -64,11 +64,16 @@ coverage.xml
 *.cover
 
 # ---- Environment & Secrets ----------------------------------
+# Root
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.*.example
+# Apps
 apps/**/.env
-apps/**/.env.local
+apps/**/.env.*
+!apps/**/.env.example
+!apps/**/.env.*.example
 
 # ---- IDE & OS -----------------------------------------------
 .idea/
