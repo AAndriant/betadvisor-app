@@ -15,10 +15,25 @@ environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-prod')
 
+# PRODUCTION SAFETY — fail fast si clé insécurisée en production
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    raise RuntimeError(
+        "[SECURITY] SECRET_KEY is insecure in production. "
+        "Set a proper random SECRET_KEY via environment."
+    )
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=True)
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+_ALLOWED_HOSTS_DEFAULT = ['localhost', '127.0.0.1'] if DEBUG else []
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=_ALLOWED_HOSTS_DEFAULT)
+
+# PRODUCTION SAFETY — ALLOWED_HOSTS=[*] interdit en production
+if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
+    raise RuntimeError(
+        "[SECURITY] ALLOWED_HOSTS must be explicitly set in production. "
+        "Set ALLOWED_HOSTS env var (e.g. 'api.betadvisor.app')."
+    )
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
@@ -98,12 +113,69 @@ DATABASES = {
     'default': env.db('DATABASE_URL', default='postgres://betadvisor:betadvisor@db:5432/betadvisor')
 }
 
-# Stripe Configuration
-STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY')
-STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
-STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET', default='whsec_placeholder')
+# ─────────────────────────────────────────────────────────────
+# STRIPE CONFIGURATION
+# ─────────────────────────────────────────────────────────────
+
+# Clés Stripe — utiliser STRIPE_LIVE_SECRET_KEY en production
+# Si STRIPE_LIVE_SECRET_KEY est présent, il a la priorité sur STRIPE_SECRET_KEY
+_stripe_secret = env('STRIPE_LIVE_SECRET_KEY', default='') or env('STRIPE_SECRET_KEY', default='')
+if not _stripe_secret:
+    raise RuntimeError(
+        "[STRIPE] STRIPE_LIVE_SECRET_KEY ou STRIPE_SECRET_KEY requis au démarrage."
+    )
+STRIPE_SECRET_KEY = _stripe_secret
+STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
+
+# Webhook secret — fail fast si absent et DEBUG=False
+_webhook_secret = env('STRIPE_LIVE_WEBHOOK_SECRET', default='') or env('STRIPE_WEBHOOK_SECRET', default='')
+if not DEBUG and not _webhook_secret:
+    raise RuntimeError(
+        "[STRIPE] STRIPE_LIVE_WEBHOOK_SECRET requis en production."
+    )
+STRIPE_WEBHOOK_SECRET = _webhook_secret or 'whsec_placeholder_dev_only'
+
+# Platform Stripe Account
+STRIPE_PLATFORM_ACCOUNT_ID = env('STRIPE_PLATFORM_ACCOUNT_ID', default='')
+
+# ─────────────────────────────────────────────────────────────
+# PLATFORM FEE — CONSTANTE 20%
+# ─────────────────────────────────────────────────────────────
+# CRITIQUE : cette valeur est redondante avec la constante dans services.py.
+# Le service Stripe utilise TOUJOURS application_fee_percent=20 en dur.
+# Cette variable est ici pour documentation et vérification au boot.
+STRIPE_PLATFORM_FEE_PERCENT = env.int('STRIPE_PLATFORM_FEE_PERCENT', default=20)
+if STRIPE_PLATFORM_FEE_PERCENT != 20:
+    import warnings
+    warnings.warn(
+        f"[FEE] STRIPE_PLATFORM_FEE_PERCENT={STRIPE_PLATFORM_FEE_PERCENT} (attendu: 20). "
+        "Le service utilise la constante 20 — vérifier la cohérence.",
+        RuntimeWarning
+    )
+
+# OBSOLETE — ne pas utiliser dans le code Connect (valeur par défaut = 10 = INCORRECTE)
+# Conservé uniquement pour rétrocompatibilité avec l'app finance/ existante
 PLATFORM_FEE_PERCENT = env.float('PLATFORM_FEE_PERCENT', default=10.0)
+
+# ─────────────────────────────────────────────────────────────
+# CHECKOUT DEEP LINKS (Expo betadvisor://)
+# ─────────────────────────────────────────────────────────────
+# {CHECKOUT_SESSION_ID} est substitué par Stripe automatiquement
+CHECKOUT_SUCCESS_URL = env(
+    'CHECKOUT_SUCCESS_URL',
+    default='betadvisor://checkout/success?session_id={CHECKOUT_SESSION_ID}'
+)
+CHECKOUT_CANCEL_URL = env(
+    'CHECKOUT_CANCEL_URL',
+    default='betadvisor://checkout/cancel'
+)
+EXPO_APP_SCHEME = env('EXPO_APP_SCHEME', default='betadvisor')
+
+# ─────────────────────────────────────────────────────────────
+# URLs
+# ─────────────────────────────────────────────────────────────
 SITE_URL = env('SITE_URL', default='http://localhost:8000')
+APP_BASE_URL = env('APP_BASE_URL', default=SITE_URL)
 
 
 # Password validation

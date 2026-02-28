@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "jules/**"
+  pull_request:
+    branches:
+      - main
+      - "jules/**"
+
+# ─────────────────────────────────────────────────────────────
+# cancel-in-progress: true → on garde le dernier push seulement
+# ─────────────────────────────────────────────────────────────
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # JOB 1 — Backend Django (lint + check + migrations)
+  # ─────────────────────────────────────────────────────────────
+  backend:
+    name: Backend CI (Django)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: betadvisor_ci
+          POSTGRES_USER: betadvisor
+          POSTGRES_PASSWORD: betadvisor_ci_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: apps/backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r apps/backend/requirements.txt
+
+      - name: Syntax check (compileall)
+        run: python -m compileall apps/backend/src -q
+
+      - name: Django system check
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: cd apps/backend/src && python manage.py check
+
+      - name: Apply migrations
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: cd apps/backend/src && python manage.py migrate --noinput
+
+      - name: Show migration state
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: cd apps/backend/src && python manage.py showmigrations
+
+  # ─────────────────────────────────────────────────────────────
+  # JOB 2 — Mobile Expo (npm ci + tsc)
+  # ─────────────────────────────────────────────────────────────
+  mobile:
+    name: Mobile CI (Expo / TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: apps/mobile
+        run: npm ci
+
+      - name: TypeScript check
+        # Non-blocking actuellement (types @types/react-native à stabiliser)
+        # Passer bloquant une fois tsconfig stabilisé
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+        continue-on-error: true

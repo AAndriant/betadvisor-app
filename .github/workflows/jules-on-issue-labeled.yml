@@ -1,0 +1,59 @@
+name: Jules — Assign Issue
+
+on:
+  issues:
+    types: [labeled]
+
+# ─────────────────────────────────────────────────────────────
+# DÉCLENCHEMENT HUMAIN UNIQUEMENT
+# Ce workflow gère le label posé manuellement par un humain.
+# La chaîne automatique (issue → issue) passe par l'API Jules
+# directement dans jules-autoqueue-train.yml (bypass anti-récursion).
+# ─────────────────────────────────────────────────────────────
+jobs:
+  dispatch-jules:
+    if: github.event.label.name == 'agent:jules'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      issues: read
+
+    steps:
+      - name: Build prompt from issue
+        id: prompt
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const prompt = [
+              `You are Jules, an AI coding agent working on the betadvisor-app repository.`,
+              ``,
+              `## Your Task`,
+              `Solve GitHub Issue #${issue.number}: ${issue.title}`,
+              ``,
+              `## Issue Body`,
+              issue.body || '(no body)',
+              ``,
+              `## Repository Rules`,
+              `- Read AGENTS.md at the repo root for ALL coding conventions before writing any code.`,
+              `- NEVER throw at module top-level for missing env vars. Use handler-level guards.`,
+              `- Your PR body MUST contain "Closes #${issue.number}".`,
+              `- Backend CI: cd apps/backend/src && python manage.py check`,
+              `- Migration rule: 1 migration maximum per PR. Never generate 2 in the same app.`,
+              `- Stripe rule: all Stripe logic in services.py or webhooks.py only, never in views.py.`,
+              `- application_fee_percent MUST be 20 (explicit constant, not from settings.PLATFORM_FEE_PERCENT).`,
+              ``,
+              `## Branch Convention`,
+              `Create your working branch from jules/train (the starting branch).`,
+              `Branch naming: jules/<issue-number>-<short-slug>`,
+            ].join('\n');
+            core.setOutput('text', prompt);
+
+      - name: Launch Jules
+        uses: google-labs-code/jules-action@bff7875eaa123cac6742b7cfc51005b95ba4d566 # v1.0.0
+        with:
+          prompt: ${{ steps.prompt.outputs.text }}
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          starting_branch: jules/train
