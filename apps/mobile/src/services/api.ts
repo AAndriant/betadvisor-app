@@ -2,8 +2,11 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
-// Define the API URL based on the platform
-const API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+// API URL from environment — set EXPO_PUBLIC_API_URL in apps/mobile/.env
+// Fallback: Android emulator uses 10.0.2.2, iOS/web use localhost
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000');
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -146,16 +149,18 @@ export const fetchBets = async () => {
   return data;
 };
 
-// Upload l'image et récupère l'URL de suivi
+// Upload l'image et récupère l'URL de suivi (legacy — utiliser uploadTicket() si possible)
 export const uploadTicketImage = async (formData: FormData) => {
-  const { data } = await api.post('/tickets/upload/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  // ✅ FIX: ajout du préfixe /api/ manquant + suppression Content-Type explicite
+  const { data } = await api.post('/api/tickets/upload/', formData, {
+    headers: { 'Content-Type': undefined },
   });
   return data; // Attend { ticket_id: '...', status_url: '...' }
 };
 
 // Vérifie le statut
 export const pollTicketStatus = async (ticketId: string) => {
-  const { data } = await api.get(`/tickets/${ticketId}/status/`);
+  // ✅ FIX: ajout du préfixe /api/ manquant
+  const { data } = await api.get(`/api/tickets/${ticketId}/status/`);
   return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
 };
