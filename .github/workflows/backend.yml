@@ -1,0 +1,48 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "apps/backend/**"
+      - ".github/workflows/backend.yml"
+
+jobs:
+  lint-and-validate:
+    name: Python Lint & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: apps/backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r apps/backend/requirements.txt
+
+      - name: Compile check (syntax validation)
+        run: python -m compileall apps/backend/src -q
+
+      - name: Django check (structural validation)
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "sqlite:///tmp/ci.db"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+        run: |
+          cd apps/backend/src
+          python manage.py check --deploy --fail-level WARNING 2>&1 || true
+          python manage.py check

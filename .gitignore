@@ -1,0 +1,87 @@
+# ============================================================
+# BetAdvisor Monorepo — .gitignore global
+# ============================================================
+
+# ---- Python / Django ----------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# ---- Node / React Native ------------------------------------
+node_modules/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.npm/
+
+# ---- Expo ---------------------------------------------------
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# ---- Native (Expo Bare — non utilisé mais par sécurité) -----
+/ios/
+/android/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+
+# ---- Build & Coverage ---------------------------------------
+coverage/
+.nyc_output/
+*.tsbuildinfo
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# ---- Environment & Secrets ----------------------------------
+.env
+.env.local
+.env.*.local
+apps/**/.env
+apps/**/.env.local
+
+# ---- IDE & OS -----------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*.pem
+Thumbs.db
+
+# ---- Docker -------------------------------------------------
+.docker/
+
+# ---- Logs ---------------------------------------------------
+*.log
+logs/
