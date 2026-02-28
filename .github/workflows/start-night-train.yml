@@ -1,0 +1,235 @@
+name: Start Night Train
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DÉCLENCHEMENT : workflow_dispatch uniquement — bouton GitHub Actions UI
+# AUCUN label manuel requis. Le train démarre via ce bouton.
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  start-night-train:
+    name: Start Night Train (No Label Required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Setup gh CLI token ───────────────────────────────────────────────
+      - name: Configure gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh auth setup-git
+
+      # ── 3. Bootstrap (idempotent) ──────────────────────────────────────────
+      # Crée labels + branche jules/train + issues CC-01..CC-09 si absents.
+      # Sans effet si tout existe déjà.
+      - name: Run bootstrap-night-train.sh (idempotent)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          chmod +x bootstrap-night-train.sh
+          ./bootstrap-night-train.sh
+          echo "Bootstrap complete"
+
+      # ── 4. Vérifier existence branche jules/train ──────────────────────────
+      - name: Verify jules/train branch exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh api "repos/${{ github.repository }}/branches/jules%2Ftrain" &>/dev/null; then
+            echo "Branch jules/train exists"
+          else
+            echo "jules/train missing after bootstrap — aborting"
+            exit 1
+          fi
+
+      # ── 5. Identifier CC-01 ────────────────────────────────────────────────
+      # Stratégie 1 : titre contient [CC-01]
+      # Stratégie 2 : fallback label epic:connect-core + ready (numéro le plus bas)
+      - name: Find CC-01 issue number
+        id: find-cc01
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+
+            const { data: allIssues } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', per_page: 100
+            });
+
+            // Stratégie 1 : titre [CC-01]
+            const cc01 = allIssues.find(i =>
+              i.title.match(/^\[CC-01\]/i) || i.title.match(/ConnectedAccount model/i)
+            );
+
+            if (cc01) {
+              console.log(`Found CC-01 by title: #${cc01.number}`);
+              core.setOutput('issue_number', String(cc01.number));
+              core.setOutput('issue_title', cc01.title);
+              return;
+            }
+
+            // Stratégie 2 : label epic:connect-core + ready
+            const { data: labeled } = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open',
+              labels: 'epic:connect-core,ready',
+              per_page: 10
+            });
+
+            if (labeled.length > 0) {
+              const first = labeled.sort((a, b) => a.number - b.number)[0];
+              console.log(`Found CC-01 by label: #${first.number}`);
+              core.setOutput('issue_number', String(first.number));
+              core.setOutput('issue_title', first.title);
+              return;
+            }
+
+            core.setFailed('CC-01 issue not found. Run bootstrap first or check issue labels.');
+
+      # ── 6. Setup Python (pour construire le payload Jules) ─────────────────
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      # ── 7. Appel DIRECT à l'API Jules ──────────────────────────────────────
+      # CRITIQUE :
+      # - Pas de label agent:jules (bypass anti-récursion GitHub validé v1)
+      # - JULES_API_KEY via env vars (jamais loggée, jamais en output de step)
+      # - Fail fast si clé absente ou si status HTTP != 2xx
+      # - Payload construit via python3 pour éviter les bugs de quoting bash
+      - name: Invoke Jules API on CC-01
+        id: invoke-jules
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          CC01_NUMBER: ${{ steps.find-cc01.outputs.issue_number }}
+          CC01_TITLE: ${{ steps.find-cc01.outputs.issue_title }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "JULES_API_KEY secret is not set."
+            echo "Run: gh secret set JULES_API_KEY --repo ${{ github.repository }}"
+            exit 1
+          fi
+
+          python3 - <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          cc01    = os.environ["CC01_NUMBER"]
+          title   = os.environ["CC01_TITLE"]
+          owner   = os.environ["REPO_OWNER"]
+          repo    = os.environ["REPO_NAME"]
+          api_key = os.environ["JULES_API_KEY"]
+
+          prompt = "\n".join([
+            "You are Jules, an AI coding agent working on the betadvisor-app repository.",
+            "",
+            "## Your Task",
+            f"Solve GitHub Issue #{cc01}: {title}",
+            "",
+            "## Repository Rules",
+            "- Read AGENTS.md at the repo root for ALL coding conventions before writing any code.",
+            "- NEVER throw at module top-level for missing env vars. Use handler-level guards.",
+            f"- Your PR body MUST contain \"Closes #{cc01}\".",
+            "- Backend CI: cd apps/backend/src && python manage.py check",
+            "- Migration rule: 1 migration maximum per PR. Never generate 2 in the same app.",
+            "- Stripe rule: all Stripe logic in services.py or webhooks.py only, never in views.py.",
+            "- application_fee_percent MUST be 20 (explicit constant, never settings.PLATFORM_FEE_PERCENT).",
+            "",
+            "## Branch Convention",
+            "Create your working branch from jules/train (the starting branch).",
+            f"Branch naming: jules/{cc01}-connect-account-model",
+          ])
+
+          payload = json.dumps({
+            "prompt": prompt,
+            "sourceContext": {
+              "source": f"sources/github/{owner}/{repo}",
+              "githubRepoContext": {"startingBranch": "jules/train"},
+            },
+            "requirePlanApproval": False,
+            "automationMode": "AUTO_CREATE_PR",
+          }).encode()
+
+          req = urllib.request.Request(
+            "https://jules.googleapis.com/v1alpha/sessions",
+            data=payload,
+            headers={
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": api_key,
+            },
+            method="POST",
+          )
+
+          print(f"[start-night-train] Invoking Jules API for issue #{cc01}...")
+
+          try:
+            with urllib.request.urlopen(req) as resp:
+              body = json.loads(resp.read())
+              session = body.get("name", "unknown")
+              print(f"[start-night-train] Jules session created: {session}")
+              # Écrire dans GITHUB_ENV pour l'étape suivante
+              with open(os.environ["GITHUB_ENV"], "a") as f:
+                f.write(f"JULES_SESSION={session}\n")
+          except urllib.error.HTTPError as e:
+            body = e.read().decode(errors="replace")
+            print(f"[start-night-train] Jules API error ({e.code}):", file=sys.stderr)
+            try:
+              err = json.loads(body)
+              # Ne pas exposer les détails complets (peut contenir des clés)
+              print(json.dumps({"status": err.get("status"), "message": err.get("message")}, indent=2), file=sys.stderr)
+            except Exception:
+              print("(non-JSON response)", file=sys.stderr)
+            sys.exit(1)
+          PYEOF
+
+      # ── 8. Commenter sur CC-01 ──────────────────────────────────────────────
+      - name: Comment on CC-01 issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        if: success()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = parseInt('${{ steps.find-cc01.outputs.issue_number }}', 10);
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const session = process.env.JULES_SESSION || 'unknown';
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: [
+                `🚂 **Night Train started** via \`workflow_dispatch\``,
+                ``,
+                `| Champ | Valeur |`,
+                `|-------|--------|`,
+                `| Run | [${context.runId}](${runUrl}) |`,
+                `| Jules session | \`${session}\` |`,
+                `| Starting branch | \`jules/train\` |`,
+                `| Triggered by | @${context.actor} |`,
+                `| Time | ${new Date().toISOString()} |`,
+                ``,
+                `Jules va créer la branche \`jules/${issueNumber}-connect-account-model\` et ouvrir une PR avec \`Closes #${issueNumber}\`.`,
+                ``,
+                `> Aucun label \`agent:jules\` n'a été posé — le train démarre via appel direct à l'API Jules (bypass anti-récursion GitHub).`,
+              ].join('\n'),
+            });
+
+            console.log(`Commented on issue #${issueNumber}`);
