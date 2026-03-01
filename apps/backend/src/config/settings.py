@@ -15,25 +15,25 @@ environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-prod')
 
-# PRODUCTION SAFETY — fail fast si clé insécurisée en production
-if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
-    raise RuntimeError(
-        "[SECURITY] SECRET_KEY is insecure in production. "
-        "Set a proper random SECRET_KEY via environment."
-    )
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=True)
 
 _ALLOWED_HOSTS_DEFAULT = ['localhost', '127.0.0.1'] if DEBUG else []
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=_ALLOWED_HOSTS_DEFAULT)
 
-# PRODUCTION SAFETY — ALLOWED_HOSTS=[*] interdit en production
+# PRODUCTION SAFETY — checks effectués APRÈS que DEBUG et ALLOWED_HOSTS soient définis
+if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
+    raise RuntimeError(
+        "[SECURITY] SECRET_KEY is insecure in production. "
+        "Set a proper random SECRET_KEY via environment variable."
+    )
+
 if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
     raise RuntimeError(
         "[SECURITY] ALLOWED_HOSTS must be explicitly set in production. "
         "Set ALLOWED_HOSTS env var (e.g. 'api.betadvisor.app')."
     )
+
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = [
