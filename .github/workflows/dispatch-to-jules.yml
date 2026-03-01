@@ -1,0 +1,148 @@
+name: Dispatch Issue to Jules
+
+# ─────────────────────────────────────────────────────────────
+# Usage: Relancer Jules sur une issue spécifique sans label.
+# Utile quand l'autoqueue s'est arrêté entre deux issues.
+#
+# gh workflow run "Dispatch Issue to Jules" \
+#   --repo AAndriant/betadvisor-app \
+#   --field issue_number=2
+# ─────────────────────────────────────────────────────────────
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "GitHub Issue number to dispatch to Jules"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  dispatch:
+    name: Dispatch Issue #${{ inputs.issue_number }} to Jules
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Fetch issue details
+        id: issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: issue } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt('${{ inputs.issue_number }}', 10),
+            });
+            core.setOutput('title', issue.title);
+            core.setOutput('body', issue.body || '(no body)');
+            console.log(`Issue #${issue.number}: ${issue.title}`);
+
+      - name: Dispatch to Jules API
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${JULES_API_KEY:-}" ]; then
+            echo "JULES_API_KEY not set"
+            exit 1
+          fi
+
+          python3 - <<'PYEOF'
+          import json, os, sys, urllib.request, urllib.error
+
+          num   = os.environ["ISSUE_NUMBER"]
+          title = os.environ["ISSUE_TITLE"]
+          body  = os.environ["ISSUE_BODY"]
+          owner = os.environ["REPO_OWNER"]
+          repo  = os.environ["REPO_NAME"]
+          api_key = os.environ["JULES_API_KEY"]
+
+          prompt = "\n".join([
+            "You are Jules, an AI coding agent working on the betadvisor-app repository.",
+            "",
+            "## Your Task",
+            f"Solve GitHub Issue #{num}: {title}",
+            "",
+            "## Issue Body",
+            body,
+            "",
+            "## Repository Rules",
+            "- Read AGENTS.md at the repo root for ALL coding conventions before writing any code.",
+            "- NEVER throw at module top-level for missing env vars. Use handler-level guards.",
+            f"- Your PR body MUST contain \"Closes #{num}\".",
+            "- Backend CI: cd apps/backend/src && python manage.py check",
+            "- Migration rule: 1 migration maximum per PR. Never generate 2 in the same app.",
+            "- Stripe rule: all Stripe logic in services.py or webhooks.py only, never in views.py.",
+            "- application_fee_percent MUST be 20 (explicit constant, never settings.PLATFORM_FEE_PERCENT).",
+            "",
+            "## Branch Convention",
+            "Create your working branch from jules/train (the starting branch).",
+            f"Branch naming: jules/{num}-<short-slug>",
+          ])
+
+          payload = json.dumps({
+            "prompt": prompt,
+            "sourceContext": {
+              "source": f"sources/github/{owner}/{repo}",
+              "githubRepoContext": {"startingBranch": "jules/train"},
+            },
+            "requirePlanApproval": False,
+            "automationMode": "AUTO_CREATE_PR",
+          }).encode()
+
+          req = urllib.request.Request(
+            "https://jules.googleapis.com/v1alpha/sessions",
+            data=payload,
+            headers={"Content-Type": "application/json", "X-Goog-Api-Key": api_key},
+            method="POST",
+          )
+
+          print(f"[dispatch] Sending issue #{num} to Jules...")
+          try:
+            with urllib.request.urlopen(req) as resp:
+              result = json.loads(resp.read())
+              session = result.get("name", "unknown")
+              print(f"[dispatch] Jules session created: {session}")
+              with open(os.environ["GITHUB_ENV"], "a") as f:
+                f.write(f"JULES_SESSION={session}\n")
+          except urllib.error.HTTPError as e:
+            err = json.loads(e.read().decode(errors="replace"))
+            print(f"[dispatch] ERROR {e.code}: {err.get('message')}", file=sys.stderr)
+            sys.exit(1)
+          PYEOF
+
+      - name: Comment on issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        if: success()
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const session = process.env.JULES_SESSION || 'unknown';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt('${{ inputs.issue_number }}', 10),
+              body: [
+                `🚂 **Dispatched to Jules** via \`workflow_dispatch\``,
+                `| Jules session | \`${session}\` |`,
+                `| Run | [${context.runId}](${runUrl}) |`,
+                `| Starting branch | \`jules/train\` |`,
+              ].join('\n'),
+            });
