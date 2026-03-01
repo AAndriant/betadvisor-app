@@ -1,6 +1,6 @@
 from django.urls import path
-from subscriptions.views import MySubscriptionsView
+from subscriptions.views import SubscribeView
 
 urlpatterns = [
-    path('me/subscriptions/', MySubscriptionsView.as_view(), name='my-subscriptions'),
+    path('subscribe/', SubscribeView.as_view(), name='subscribe'),
 ]
