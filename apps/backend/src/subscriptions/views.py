@@ -4,9 +4,23 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework.generics import ListAPIView
+from rest_framework.permissions import IsAuthenticated
+from subscriptions.models import Subscription
+from subscriptions.serializers import SubscriptionSerializer
 from subscriptions.webhooks import process_stripe_webhook_payload, StripeWebhookSignatureError, StripeWebhookPayloadError
 
 logger = logging.getLogger(__name__)
+
+class MySubscriptionsView(ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SubscriptionSerializer
+
+    def get_queryset(self):
+        return Subscription.objects.filter(
+            follower=self.request.user,
+            status='active'
+        )
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(View):
