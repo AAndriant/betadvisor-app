@@ -72,6 +72,8 @@ INSTALLED_APPS = [
     'gamification',
     'social',
     'api',
+    'connect',
+    'subscriptions',
 ]
 
 MIDDLEWARE = [
