@@ -4,13 +4,61 @@ from django.http import HttpResponse, HttpResponseBadRequest
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from users.models import CustomUser
 from subscriptions.models import Subscription
 from subscriptions.serializers import SubscriptionSerializer
 from subscriptions.webhooks import process_stripe_webhook_payload, StripeWebhookSignatureError, StripeWebhookPayloadError
+from subscriptions.services import create_subscription_checkout, TipsterNotOnboardedError
 
 logger = logging.getLogger(__name__)
+
+class SubscribeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        tipster_id = request.data.get('tipster_id')
+        price_id = request.data.get('price_id')
+
+        if not tipster_id or not price_id:
+            return Response({'error': 'tipster_id and price_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        tipster = get_object_or_404(CustomUser, id=tipster_id)
+
+        # Check for active subscription
+        has_active_subscription = Subscription.objects.filter(
+            follower=request.user,
+            tipster=tipster,
+            status='active'
+        ).exists()
+
+        if has_active_subscription:
+            return Response({'error': 'Active subscription already exists'}, status=status.HTTP_409_CONFLICT)
+
+        # Let the frontend determine the success/cancel URLs, or fallback to defaults
+        # To avoid passing full request URLs in testing or typical setups, we use placeholder or frontend provided URLs
+        success_url = request.data.get('success_url', request.build_absolute_uri('/') + 'success/')
+        cancel_url = request.data.get('cancel_url', request.build_absolute_uri('/') + 'cancel/')
+
+        try:
+            checkout_url = create_subscription_checkout(
+                follower=request.user,
+                tipster=tipster,
+                price_id=price_id,
+                success_url=success_url,
+                cancel_url=cancel_url
+            )
+            return Response({'checkout_url': checkout_url}, status=status.HTTP_200_OK)
+        except TipsterNotOnboardedError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error creating subscription checkout: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class MySubscriptionsView(ListAPIView):
     permission_classes = [IsAuthenticated]
