@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/tickets/', include('tickets.urls')),
     path('api/social/', include('social.urls')),
     path('api/connect/', include('connect.urls')),
+    path('api/', include('subscriptions.urls')),
     path('api/stripe/webhook/', StripeWebhookView.as_view(), name='stripe-webhook'),
     path('finance/', include('finance.urls')),
 ]
