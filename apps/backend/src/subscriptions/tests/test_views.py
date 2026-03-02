@@ -71,6 +71,38 @@ class SubscribeViewTest(TestCase):
             onboarding_completed=True
         )
 
+    def test_subscribe_unauthenticated(self):
+        self.client.logout()
+        self.client.force_authenticate(user=None)
+        response = self.client.post(reverse('subscribe'), {
+            'tipster_id': self.tipster.id,
+            'price_id': 'price_123'
+        })
+        self.assertEqual(response.status_code, 401)
+
+    @patch('subscriptions.services.stripe.Customer.list')
+    @patch('subscriptions.services.stripe.Customer.create')
+    @patch('subscriptions.services.stripe.checkout.Session.create')
+    def test_subscribe_creates_checkout_session(self, mock_session_create, mock_customer_create, mock_customer_list):
+        mock_customer_list.return_value = MagicMock(data=[MagicMock(id="cus_test_123")])
+        mock_session_create.return_value = MagicMock(id="cs_test_123", url="http://example.com/checkout")
+
+        with self.settings(STRIPE_SECRET_KEY="sk_test_123"):
+            response = self.client.post(reverse('subscribe'), {
+                'tipster_id': self.tipster.id,
+                'price_id': 'price_123'
+            })
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('checkout_url', response.data)
+            self.assertEqual(response.data['checkout_url'], "http://example.com/checkout")
+
+            mock_session_create.assert_called_once()
+            _, kwargs = mock_session_create.call_args
+
+            self.assertEqual(kwargs['mode'], 'subscription')
+            self.assertEqual(kwargs['subscription_data']['application_fee_percent'], 20)
+
     @patch('subscriptions.views.create_subscription_checkout')
     def test_subscribe_uses_settings_urls_for_checkout(self, mock_create_checkout):
         """
