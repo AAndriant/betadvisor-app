@@ -12,6 +12,9 @@ environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
+# Environment
+DJANGO_ENV = env('DJANGO_ENV', default='development')
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-prod')
 
@@ -20,6 +23,16 @@ DEBUG = env.bool('DEBUG', default=True)
 
 _ALLOWED_HOSTS_DEFAULT = ['localhost', '127.0.0.1'] if DEBUG else []
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=_ALLOWED_HOSTS_DEFAULT)
+
+# HTTPS Enforcement and Security Headers
+SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=False)
+SECURE_HSTS_SECONDS = env.int('SECURE_HSTS_SECONDS', default=0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False)
+SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=False)
+
+# Secure Cookies
+SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=False)
+CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=False)
 
 # PRODUCTION SAFETY — checks effectués APRÈS que DEBUG et ALLOWED_HOSTS soient définis
 if not DEBUG and SECRET_KEY.startswith('django-insecure-'):
@@ -36,14 +49,11 @@ if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
 
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8081',
-    'http://127.0.0.1:8081',
-    'http://localhost:8082',
-    'http://127.0.0.1:8082',
-    'http://localhost:8083',
-    'http://127.0.0.1:8083',
-]
+if DJANGO_ENV == 'development':
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOW_CREDENTIALS = True
 
 
@@ -243,8 +253,10 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '10/minute',
-        'user': '1000/day'
+        'anon': '100/min',
+        'user': '100/min',
+        'login_anon': '5/min',
+        'login_user': '5/min',
     }
 }
 

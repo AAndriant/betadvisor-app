@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.core.cache import cache
 from rest_framework import status
 from rest_framework.test import APITestCase
 from users.models import TipsterProfile
@@ -64,3 +65,48 @@ class RegisterTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('password', response.data)
+
+
+class ThrottlingTests(APITestCase):
+    def setUp(self):
+        # Ensure cache is clear before testing throttles
+        cache.clear()
+
+    def test_login_throttling(self):
+        """Test login endpoint is throttled after 5 requests per minute."""
+        url = reverse('token_obtain_pair')
+        data = {
+            'username': 'testuser',
+            'password': 'wrongpassword'
+        }
+
+        # First 5 requests should not be throttled (might be 401 Unauthorized, but not 429)
+        for _ in range(5):
+            response = self.client.post(url, data, format='json')
+            self.assertNotEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+        # 6th request should be throttled
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+    def test_register_throttling(self):
+        """Test register endpoint is throttled after 5 requests per minute."""
+        url = reverse('users:register')
+        data = {
+            'username': 'testuser1',
+            'email': 'testuser1@example.com',
+            'password': 'StrongPassword123!'
+        }
+
+        # First 5 requests should not be throttled
+        for i in range(5):
+            # Change username/email slightly to avoid 400 Bad Request on duplicates
+            req_data = data.copy()
+            req_data['username'] = f"testuser{i}"
+            req_data['email'] = f"testuser{i}@example.com"
+            response = self.client.post(url, req_data, format='json')
+            self.assertNotEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+
+        # 6th request should be throttled
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
