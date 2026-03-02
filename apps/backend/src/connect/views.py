@@ -18,6 +18,12 @@ class CreateConnectedAccountView(APIView):
         except StripeConnectError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+class CreateCheckoutSessionDeprecatedView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        return Response({'error': 'use /api/subscriptions/subscribe/'}, status=status.HTTP_410_GONE)
+
 class OnboardingLinkView(APIView):
     permission_classes = [IsAuthenticated]
 
