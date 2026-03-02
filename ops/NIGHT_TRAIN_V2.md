@@ -1,6 +1,6 @@
 # Night Train v2 — Runbook
 
-> **Version:** SRE-hardened v2 (2026-03-02)  
+> **Version:** SRE-hardened v2 + proof-of-work guard (2026-03-02)  
 > **Repo:** AAndriant/betadvisor-app
 
 ---
@@ -21,6 +21,7 @@ Autoqueue (workflow_run: CI success)
   → Guard: branch must be jules/* (not jules/train)
   → Extract issue_id from branch (BEFORE merge)
   → Validate issue is in ops/night-queue.json
+  → PROOF-OF-WORK: verify PR has meaningful code changes (HALT if no-op)
   → Merge PR → jules/train
   → Close issue + label ready
   → Write ops/night-train-state.json
@@ -62,13 +63,14 @@ This is the **correct, SRE-hardened** order:
 
 1. **Extract** issue_id from branch `jules/<id>-slug` (BEFORE merge)
 2. **Validate** issue is in `ops/night-queue.json` (HARD STOP if not found)
-3. **Merge** PR → `jules/train`
-4. **Close** issue (only if merge succeeded) + label `ready` + remove `agent:jules`
-5. **Write** state file `ops/night-train-state.json`
-6. **Scan** queue forward for NEXT open issue
-7. **Guard**: skip CLOSED issues + skip issues with existing `jules/*` PR
-8. **Invoke** Jules API for NEXT issue
-9. **Complete**: if no NEXT, log `queue_complete` and comment on last issue
+3. **Proof-of-work** — verify PR has meaningful files (HALT if no-op)
+4. **Merge** PR → `jules/train`
+5. **Close** issue (only if merge succeeded) + label `ready` + remove `agent:jules`
+6. **Write** state file `ops/night-train-state.json`
+7. **Scan** queue forward for NEXT open issue
+8. **Guard**: skip CLOSED issues + skip issues with existing `jules/*` PR
+9. **Invoke** Jules API for NEXT issue
+10. **Complete**: if no NEXT, log `queue_complete` and comment on last issue
 
 > ⚠️ **NEVER** extract issue_id AFTER merge. Always extract first, validate, then merge.
 
@@ -83,6 +85,7 @@ The train will STOP and apply `needs:human` label in these cases:
 | Cannot extract issue_id from branch or PR body | STOP + `needs:human` on PR |
 | Issue not found in queue | STOP + `needs:human` on issue + comment |
 | Merge conflict | STOP + `needs:human` on PR + comment |
+| **PR has no meaningful changes (no-op)** | **HALT + `needs:human` on issue + comment** |
 | JULES_API_KEY missing | STOP + `needs:human` on next issue |
 | Jules API error (non-2xx) | STOP + `needs:human` on next issue |
 
@@ -108,6 +111,7 @@ Look for these canonical log lines:
 ```
 [NTv2] TELEMETRY: current_issue=32 current_index=0 next_issue=34 next_index=1 queue_length=11
 [NTv2] TELEMETRY: kick_issue=32 kick_index=0 queue_length=11
+[NTv2] TELEMETRY: noop_issue=34 noop_pr=52 files=1 meaningful=0 additions=7 deletions=0
 [NTv2] 🏁 queue_complete last_completed_issue=33
 ```
 
@@ -116,6 +120,7 @@ Structured fields:
 - `next_issue` / `next_index` — issue being dispatched next
 - `queue_length` — total items in queue
 - `queue_complete` — true when no more open issues
+- `noop_issue` / `noop_pr` — proof-of-work guard triggered (PR had no meaningful changes)
 
 ---
 
@@ -173,3 +178,4 @@ Close all remaining issues in the queue, or remove the `agent:jules` label from 
 | Duplicate Jules session | Check for existing `jules/*` PR | Close duplicate PR |
 | State file stale | Check `ops/night-train-state.json` | Autoqueue will update on next merge |
 | Queue exhausted | Look for `queue_complete` in logs | Update `ops/night-queue.json` for next sprint |
+| False completion (no code) | Look for `HARD_STOP_NOOP` in logs | Review PR manually; Jules may need simpler issue scope |
