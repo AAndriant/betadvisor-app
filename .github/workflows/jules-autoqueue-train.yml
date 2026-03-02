@@ -111,7 +111,7 @@ jobs:
             }
             console.log(`[autoqueue] Linked issue: #${issueNumber}`);
 
-            // ─── 4. Marquer l'issue courante ready ──────────────────
+            // ─── 4. Marquer l'issue courante ready et la FERMER ──────
             try {
               await github.rest.issues.addLabels({
                 owner, repo,
@@ -125,8 +125,17 @@ jobs:
                   name: 'agent:jules',
                 });
               } catch (e) { /* label déjà absent : OK */ }
+
+              // On ferme explicitement l'issue car le merge via API
+              // ne déclenche pas l'auto-close des keywords
+              await github.rest.issues.update({
+                owner, repo,
+                issue_number: issueNumber,
+                state: 'closed',
+              });
+              console.log(`[autoqueue] Issue #${issueNumber} successfully closed 🚀`);
             } catch (e) {
-              console.log(`[autoqueue] Label update failed on #${issueNumber}: ${e.message}`);
+              console.log(`[autoqueue] Issue update failed on #${issueNumber}: ${e.message}`);
             }
 
             // ─── 5. Trouver l'issue suivante bloquée ────────────────
