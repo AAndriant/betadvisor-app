@@ -176,6 +176,11 @@ export const getUserProfile = async (): Promise<UserProfile> => {
   return response.data;
 };
 
+export const register = async (data: Record<string, any>) => {
+  const response = await api.post('/api/auth/register/', data);
+  return response.data;
+};
+
 export const uploadTicket = async (imageUri: string) => {
   const formData = new FormData();
   const filename = imageUri.split('/').pop() || 'ticket.jpg';
