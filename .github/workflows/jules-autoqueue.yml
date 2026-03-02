@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
 
@@ -133,6 +133,7 @@ jobs:
             const NOISE_PATTERNS = [
               /^ops\//,
               /(^|\/)plan\.md$/,
+              /(^|\/)plan_draft\.md$/,
               /(^|\/)README/i,
               /(^|\/)CONTRIBUTING/i,
               /(^|\/)CHANGELOG/i,
