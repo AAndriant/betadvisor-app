@@ -5,6 +5,7 @@
 # ---- Python / Django ----------------------------------------
 __pycache__/
 *.py[cod]
+apps/backend/src/staticfiles/
 *$py.class
 *.so
 *.egg
