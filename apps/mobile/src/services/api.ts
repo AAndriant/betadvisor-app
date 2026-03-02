@@ -59,6 +59,15 @@ export interface UserProfile {
   avatar_url?: string;
 }
 
+export const register = async (username: string, email: string, password: string) => {
+  const response = await api.post('/api/auth/register/', {
+    username,
+    email,
+    password,
+  });
+  return response.data;
+};
+
 export const getUserStats = async (): Promise<UserStats> => {
   const response = await api.get('/api/me/stats/');
   return response.data;

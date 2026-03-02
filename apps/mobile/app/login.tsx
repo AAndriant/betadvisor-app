@@ -59,7 +59,7 @@ export default function Login() {
         </View>
 
         <TouchableOpacity
-          className={`w-full bg-blue-600 py-3 rounded-md items-center ${isSubmitting ? 'opacity-70' : ''}`}
+          className={`w-full bg-blue-600 py-3 rounded-md items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
           onPress={handleLogin}
           disabled={isSubmitting}
         >
@@ -69,6 +69,13 @@ export default function Login() {
             <Text className="text-white font-bold text-lg">Se connecter</Text>
           )}
         </TouchableOpacity>
+
+        <View className="flex-row justify-center mt-2">
+          <Text className="text-gray-600">Pas encore de compte ? </Text>
+          <TouchableOpacity onPress={() => router.replace('/signup')}>
+            <Text className="text-blue-600 font-bold">Créer un compte</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
