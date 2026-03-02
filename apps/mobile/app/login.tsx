@@ -23,7 +23,7 @@ export default function Login() {
       // The prompt says "Redirige vers app/(tabs)/index.tsx une fois connecté"
       // We will handle this in the component or via a side effect in the layout.
       // But explicit redirect is often safer for immediate feedback.
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)/feed');
     } catch (error) {
       Alert.alert('Erreur', 'Échec de la connexion. Vérifiez vos identifiants.');
     } finally {
