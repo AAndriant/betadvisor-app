@@ -92,10 +92,15 @@ export default function ProfileScreen() {
           {MOCK_TICKETS.map((ticket) => (
             <View key={ticket.id} className="relative">
               <TicketCard
+                id={ticket.id}
                 title={ticket.match}
                 odds={ticket.odds}
                 status={ticket.status as any}
                 roi={null}
+                likeCount={0}
+                commentCount={0}
+                isLiked={false}
+                onPressComment={() => {}}
               />
               {ticket.isPremium && !isSubscriber && (
                 <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />
