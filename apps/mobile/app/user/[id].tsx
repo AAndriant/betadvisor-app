@@ -96,7 +96,7 @@ export default function UserProfileScreen() {
 
     const isOwnProfile = currentUser?.id === id;
     const isSubscribed = Array.isArray(mySubscriptions)
-        ? mySubscriptions.some((sub: any) => sub.tipster.id === id)
+        ? mySubscriptions.some((sub: any) => String(sub.tipster) === String(id))
         : false;
 
     // Loading state
