@@ -19,10 +19,12 @@ interface ProfileHeaderProps {
   isFollowed?: boolean;
   onToggleFollow?: () => void;
   isOwnProfile?: boolean;
+  isSubscribed?: boolean;
+  onSubscribe?: () => void;
 }
 
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, onToggleFollow, isOwnProfile }) => {
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, onToggleFollow, isOwnProfile, isSubscribed, onSubscribe }) => {
   return (
     <View className="px-4 pt-2 pb-6 bg-slate-950">
       {/* Top Row: Avatar & Actions */}
@@ -40,17 +42,30 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, 
             <Text className="text-slate-400 text-xs">Abonnés</Text>
           </View>
           {!isOwnProfile && (
-            <TouchableOpacity
-              onPress={onToggleFollow}
-              className={`px-6 py-2 rounded-full justify-center ${isFollowed
-                  ? 'bg-emerald-500'
-                  : 'bg-transparent border border-slate-600'
-                }`}
-            >
-              <Text className="text-white font-bold text-sm">
-                {isFollowed ? 'Abonné' : 'Suivre'}
-              </Text>
-            </TouchableOpacity>
+            <View className="flex-row gap-2">
+              <TouchableOpacity
+                onPress={onToggleFollow}
+                className={`px-4 py-2 rounded-full justify-center ${isFollowed
+                    ? 'bg-transparent border border-emerald-500'
+                    : 'bg-transparent border border-slate-600'
+                  }`}
+              >
+                <Text className={`font-bold text-sm ${isFollowed ? 'text-emerald-500' : 'text-white'}`}>
+                  {isFollowed ? 'Suivi' : 'Suivre'}
+                </Text>
+              </TouchableOpacity>
+              {user.role === 'TIPSTER' && (
+                <TouchableOpacity
+                  onPress={isSubscribed ? undefined : onSubscribe}
+                  className={`px-4 py-2 rounded-full justify-center ${isSubscribed ? 'bg-emerald-600 opacity-80' : 'bg-emerald-500'}`}
+                  disabled={isSubscribed}
+                >
+                  <Text className="text-white font-bold text-sm">
+                    {isSubscribed ? 'Abonné VIP' : "S'abonner"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
       </View>

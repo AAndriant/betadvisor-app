@@ -286,3 +286,17 @@ export const getOnboardingLink = async () => {
   const { data } = await api.get('/api/connect/onboarding-link/');
   return data;
 };
+
+export const createSubscriptionCheckout = async (tipsterId: string, successUrl: string, cancelUrl: string) => {
+  const { data } = await api.post('/api/subscriptions/subscribe/', {
+    tipster_id: tipsterId,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  });
+  return data;
+};
+
+export const getMySubscriptions = async () => {
+  const { data } = await api.get('/api/me/subscriptions/');
+  return data;
+};
