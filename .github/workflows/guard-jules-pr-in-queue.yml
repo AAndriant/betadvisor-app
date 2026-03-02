@@ -1,0 +1,138 @@
+name: Guard — Jules PR must be in active queue
+
+# ─────────────────────────────────────────────────────────────
+# Runs on every jules/* PR open/reopen/sync.
+# Checks that the issue_id from the branch name is in the
+# active queue (ops/night-queue.json on main).
+# If not: labels needs:human + ghost-pr, comments, optionally closes.
+# ─────────────────────────────────────────────────────────────
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  check-queue:
+    # Only act on jules/* branches (not jules/train)
+    if: >-
+      startsWith(github.event.pull_request.head.ref, 'jules/') &&
+      github.event.pull_request.head.ref != 'jules/train'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check PR against active queue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const pr    = context.payload.pull_request;
+            const branch = pr.head.ref;
+
+            console.log(`[guard] PR #${pr.number}: ${branch}`);
+
+            // ── 1. Extract issue_id from branch ──────────────────
+            const match = branch.match(/^jules\/(\d+)/);
+            if (!match) {
+              console.log(`[guard] Cannot extract issue_id from branch "${branch}". Skipping (not a standard jules branch).`);
+              return;
+            }
+            const issueId = parseInt(match[1], 10);
+            console.log(`[guard] Extracted issue_id: #${issueId}`);
+
+            // ── 2. Read active queue from main ───────────────────
+            let queue = [];
+            try {
+              const { data } = await github.rest.repos.getContent({
+                owner, repo,
+                path: 'ops/night-queue.json',
+                ref: 'main',
+              });
+              const content = Buffer.from(data.content, 'base64').toString('utf-8');
+              queue = JSON.parse(content);
+            } catch (e) {
+              console.log(`[guard] Could not read ops/night-queue.json: ${e.message}. Skipping guard.`);
+              return;
+            }
+
+            if (!Array.isArray(queue)) {
+              console.log(`[guard] Queue is not an array. Skipping guard.`);
+              return;
+            }
+
+            console.log(`[guard] Active queue: [${queue.join(', ')}] (${queue.length} items)`);
+
+            // ── 3. Check if issue_id is in queue ─────────────────
+            if (queue.includes(issueId)) {
+              console.log(`[guard] ✅ Issue #${issueId} is in the active queue. PR is valid.`);
+              return;
+            }
+
+            // ── 4. NOT in queue → label + comment ────────────────
+            console.log(`[guard] ⚠️ Issue #${issueId} is NOT in the active queue.`);
+
+            // Add labels
+            try {
+              await github.rest.issues.addLabels({
+                owner, repo,
+                issue_number: pr.number,
+                labels: ['needs:human', 'ghost-pr'],
+              });
+            } catch (e) {
+              console.log(`[guard] Could not add labels: ${e.message}`);
+            }
+
+            // Check if we already commented (avoid spam on synchronize)
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo,
+              issue_number: pr.number,
+              per_page: 20,
+            });
+            const alreadyCommented = comments.some(c =>
+              c.body && c.body.includes('Guard: This Jules PR targets issue')
+            );
+
+            if (!alreadyCommented) {
+              await github.rest.issues.createComment({
+                owner, repo,
+                issue_number: pr.number,
+                body: [
+                  `⚠️ **Guard:** This Jules PR targets issue **#${issueId}** which is **NOT** in the active queue (\`ops/night-queue.json\` on main).`,
+                  ``,
+                  `| Field | Value |`,
+                  `|-------|-------|`,
+                  `| Branch | \`${branch}\` |`,
+                  `| Issue | #${issueId} |`,
+                  `| Active queue | \`[${queue.join(', ')}]\` |`,
+                  ``,
+                  `Marking \`needs:human\` + \`ghost-pr\` to prevent accidental merges.`,
+                  `If the work is still relevant, add the issue to the active queue or re-scope into a Sprint 4 issue.`,
+                ].join('\n'),
+              });
+              console.log(`[guard] Comment posted on PR #${pr.number}`);
+            } else {
+              console.log(`[guard] Already commented on PR #${pr.number}, skipping duplicate.`);
+            }
+
+            // ── 5. Optional: auto-close ──────────────────────────
+            // Set AUTO_CLOSE_OUT_OF_QUEUE=true in repo variables to enable.
+            // Default: do NOT auto-close (safe mode).
+            const autoClose = '${{ vars.AUTO_CLOSE_OUT_OF_QUEUE }}' === 'true';
+            if (autoClose) {
+              await github.rest.pulls.update({
+                owner, repo,
+                pull_number: pr.number,
+                state: 'closed',
+              });
+              console.log(`[guard] Auto-closed PR #${pr.number} (AUTO_CLOSE_OUT_OF_QUEUE=true)`);
+            }
