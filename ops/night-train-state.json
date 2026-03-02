@@ -1,7 +1,7 @@
 {
-  "last_completed_issue": null,
-  "last_completed_at": null,
-  "last_completed_pr": null,
-  "last_run_id": null,
-  "queue_position": "0/11"
+  "last_completed_issue": 38,
+  "last_completed_at": "2026-03-02T08:55:20.143Z",
+  "last_completed_pr": 47,
+  "last_run_id": 22568511448,
+  "queue_position": "6/11"
 }
