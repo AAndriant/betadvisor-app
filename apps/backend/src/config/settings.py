@@ -36,14 +36,7 @@ if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
 
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8081',
-    'http://127.0.0.1:8081',
-    'http://localhost:8082',
-    'http://127.0.0.1:8082',
-    'http://localhost:8083',
-    'http://127.0.0.1:8083',
-]
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:8081').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 
