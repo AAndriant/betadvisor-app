@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -16,11 +17,13 @@ router.register(r'users', UserViewSet, basename='user')
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Routes API
+    path('api/health/', lambda r: JsonResponse({'status': 'ok'})),
     path('api/', include(router.urls)),
     path('api/me/', MyProfileView.as_view(), name='my-profile'),
 
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('', include('accounts.urls')),
     path('api/tickets/', include('tickets.urls')),
     path('api/social/', include('social.urls')),
     path('api/connect/', include('connect.urls')),

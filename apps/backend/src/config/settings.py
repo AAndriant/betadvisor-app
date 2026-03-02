@@ -36,14 +36,7 @@ if not DEBUG and ('*' in ALLOWED_HOSTS or not ALLOWED_HOSTS):
 
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8081',
-    'http://127.0.0.1:8081',
-    'http://localhost:8082',
-    'http://127.0.0.1:8082',
-    'http://localhost:8083',
-    'http://127.0.0.1:8083',
-]
+CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:8081').split(',')
 CORS_ALLOW_CREDENTIALS = True
 
 
@@ -58,6 +51,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     
     # Third party
+    'whitenoise.runserver_nostatic',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -65,6 +59,7 @@ INSTALLED_APPS = [
     # Local Apps
     'core',
     'users',
+    'accounts',
     'finance',
     'bets',
     'sports',
@@ -78,6 +73,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -139,6 +135,9 @@ STRIPE_WEBHOOK_SECRET = _webhook_secret or 'whsec_placeholder_dev_only'
 
 # Platform Stripe Account
 STRIPE_PLATFORM_ACCOUNT_ID = env('STRIPE_PLATFORM_ACCOUNT_ID', default='')
+
+# Subscription Price ID
+STRIPE_SUBSCRIPTION_PRICE_ID = env('STRIPE_SUBSCRIPTION_PRICE_ID', default='')
 
 # ─────────────────────────────────────────────────────────────
 # PLATFORM FEE — CONSTANTE 20%
@@ -215,6 +214,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR.parent, 'media')
 
@@ -238,6 +238,14 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/min',
+        'user': '60/min',
+    },
 }
 
 # SimpleJWT Settings

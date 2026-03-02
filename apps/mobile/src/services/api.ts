@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 
 // API URL from environment — set EXPO_PUBLIC_API_URL in apps/mobile/.env
 // Fallback: Android emulator uses 10.0.2.2, iOS/web use localhost
@@ -39,6 +40,112 @@ api.interceptors.request.use(
   }
 );
 
+export const authEmitter = {
+  listeners: [] as (() => void)[],
+  subscribe(listener: () => void) {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter((l) => l !== listener);
+    };
+  },
+  emit() {
+    this.listeners.forEach((listener) => listener());
+  },
+};
+
+let isRefreshing = false;
+let failedQueue: { resolve: (value?: unknown) => void; reject: (reason?: any) => void }[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        let refreshToken;
+        if (Platform.OS === 'web') {
+          refreshToken = localStorage.getItem('refreshToken');
+        } else {
+          refreshToken = await SecureStore.getItemAsync('refreshToken');
+        }
+
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        const refreshAxios = axios.create({ baseURL: API_URL });
+        const { data } = await refreshAxios.post('/api/auth/token/refresh/', {
+          refresh: refreshToken,
+        });
+
+        const newAccessToken = data.access;
+        if (Platform.OS === 'web') {
+          localStorage.setItem('accessToken', newAccessToken);
+          if (data.refresh) localStorage.setItem('refreshToken', data.refresh);
+        } else {
+          await SecureStore.setItemAsync('accessToken', newAccessToken);
+          if (data.refresh) await SecureStore.setItemAsync('refreshToken', data.refresh);
+        }
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        processQueue(null, newAccessToken);
+
+        return api(originalRequest);
+      } catch (err) {
+        processQueue(err, null);
+
+        if (Platform.OS === 'web') {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        } else {
+          await SecureStore.deleteItemAsync('accessToken');
+          await SecureStore.deleteItemAsync('refreshToken');
+        }
+
+        authEmitter.emit();
+
+        if (router) {
+          router.replace('/login');
+        }
+
+        return Promise.reject(err);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export interface Badge {
   id: string;
   name: string;
@@ -66,6 +173,11 @@ export const getUserStats = async (): Promise<UserStats> => {
 
 export const getUserProfile = async (): Promise<UserProfile> => {
   const response = await api.get('/api/me/');
+  return response.data;
+};
+
+export const register = async (data: Record<string, any>) => {
+  const response = await api.post('/api/auth/register/', data);
   return response.data;
 };
 
@@ -163,4 +275,14 @@ export const pollTicketStatus = async (ticketId: string) => {
   // ✅ FIX: ajout du préfixe /api/ manquant
   const { data } = await api.get(`/api/tickets/${ticketId}/status/`);
   return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
+};
+
+export const createConnectedAccount = async () => {
+  const { data } = await api.post('/api/connect/create-account/');
+  return data;
+};
+
+export const getOnboardingLink = async () => {
+  const { data } = await api.get('/api/connect/onboarding-link/');
+  return data;
 };

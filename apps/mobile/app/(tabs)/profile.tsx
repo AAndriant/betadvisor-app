@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { LockedContentOverlay } from '../../src/components/LockedContentOverlay';
@@ -13,6 +14,7 @@ const MOCK_TICKETS = [
 ];
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('Bets');
 
   // 1. Appel API via le Hook
@@ -50,7 +52,7 @@ export default function ProfileScreen() {
   const formattedUser = {
     name: user.username || "Utilisateur",
     handle: user.username,
-    role: 'TIPSTER' as const, // Forcé pour démo
+    role: user.is_tipster ? ('TIPSTER' as const) : ('PUNTER' as const),
     isVerified: true,
     avatarUrl: user.avatar_url,
     stats: {
@@ -71,6 +73,18 @@ export default function ProfileScreen() {
 
         {/* Header connecté à l'API */}
         <ProfileHeader user={formattedUser} isOwnProfile={true} />
+
+        {/* Bouton Devenir Tipster (uniquement pour les non-tipsters) */}
+        {!user.is_tipster && (
+          <View className="px-4 mt-4">
+            <TouchableOpacity
+              onPress={() => router.push('/tipster-onboarding')}
+              className="bg-emerald-500 py-3 rounded-xl items-center"
+            >
+              <Text className="text-white font-bold text-lg">Devenir Tipster</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Tabs Statiques */}
         <View className="flex-row border-b border-slate-800 px-4 mt-2">

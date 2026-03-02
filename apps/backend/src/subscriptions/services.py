@@ -24,11 +24,16 @@ def get_or_create_stripe_customer(user) -> str:
     logger.info(f"Created new Stripe customer for user {user.email}: {customer.id}")
     return customer.id
 
-def create_subscription_checkout(follower, tipster, price_id, success_url, cancel_url) -> str:
+def create_subscription_checkout(follower, tipster, success_url, cancel_url) -> str:
     stripe.api_key = settings.STRIPE_SECRET_KEY
     if not stripe.api_key:
         logger.error("Missing STRIPE_SECRET_KEY")
         raise ValueError("Missing STRIPE_SECRET_KEY")
+
+    price_id = settings.STRIPE_SUBSCRIPTION_PRICE_ID
+    if not price_id:
+        logger.error("Missing STRIPE_SUBSCRIPTION_PRICE_ID")
+        raise ValueError("Missing STRIPE_SUBSCRIPTION_PRICE_ID")
 
     try:
         connected_account = tipster.connected_account
