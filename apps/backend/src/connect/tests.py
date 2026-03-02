@@ -24,12 +24,12 @@ class OnboardingLinkViewTest(TestCase):
     @patch('connect.views.create_onboarding_link')
     def test_onboarding_link_uses_settings_urls(self, mock_create_onboarding_link):
         """
-        Verify that OnboardingLinkView falls back to settings.CHECKOUT_SUCCESS_URL
-        and settings.CHECKOUT_CANCEL_URL when constructing the onboarding link.
+        Verify that OnboardingLinkView falls back to settings.ONBOARDING_RETURN_URL
+        and settings.ONBOARDING_REFRESH_URL when constructing the onboarding link.
         """
         mock_create_onboarding_link.return_value = "https://connect.stripe.com/setup/s/mocked_link"
 
-        with self.settings(CHECKOUT_SUCCESS_URL="http://test.com/onboard-success", CHECKOUT_CANCEL_URL="http://test.com/onboard-cancel"):
+        with self.settings(ONBOARDING_RETURN_URL="http://test.com/onboard-return", ONBOARDING_REFRESH_URL="http://test.com/onboard-refresh"):
             response = self.client.get(reverse('connect:onboarding-link'))
 
             self.assertEqual(response.status_code, 200)
@@ -37,5 +37,5 @@ class OnboardingLinkViewTest(TestCase):
             mock_create_onboarding_link.assert_called_once()
             _, kwargs = mock_create_onboarding_link.call_args
 
-            self.assertEqual(kwargs['return_url'], "http://test.com/onboard-success")
-            self.assertEqual(kwargs['refresh_url'], "http://test.com/onboard-cancel")
+            self.assertEqual(kwargs['return_url'], "http://test.com/onboard-return")
+            self.assertEqual(kwargs['refresh_url'], "http://test.com/onboard-refresh")

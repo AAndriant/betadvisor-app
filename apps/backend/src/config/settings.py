@@ -174,6 +174,18 @@ CHECKOUT_CANCEL_URL = env(
 EXPO_APP_SCHEME = env('EXPO_APP_SCHEME', default='betadvisor')
 
 # ─────────────────────────────────────────────────────────────
+# ONBOARDING DEEP LINKS
+# ─────────────────────────────────────────────────────────────
+ONBOARDING_RETURN_URL = env(
+    'ONBOARDING_RETURN_URL',
+    default='betadvisor://onboarding-return'
+)
+ONBOARDING_REFRESH_URL = env(
+    'ONBOARDING_REFRESH_URL',
+    default='betadvisor://onboarding-refresh'
+)
+
+# ─────────────────────────────────────────────────────────────
 # URLs
 # ─────────────────────────────────────────────────────────────
 SITE_URL = env('SITE_URL', default='http://localhost:8000')
