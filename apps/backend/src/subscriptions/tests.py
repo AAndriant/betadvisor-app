@@ -1,3 +1,56 @@
 from django.test import TestCase
+from django.contrib.auth import get_user_model
+from unittest.mock import patch, MagicMock
+from subscriptions.services import create_subscription_checkout, get_or_create_stripe_customer
+from connect.models import ConnectedAccount
+from django.conf import settings
 
-# Create your tests here.
+User = get_user_model()
+
+class SubscriptionServicesTest(TestCase):
+    def setUp(self):
+        settings.STRIPE_SECRET_KEY = "sk_test_123"
+        self.follower = User.objects.create(username="follower", email="follower@example.com")
+        self.tipster = User.objects.create(username="tipster", email="tipster@example.com")
+
+        self.connected_account = ConnectedAccount.objects.create(
+            user=self.tipster,
+            stripe_account_id="acct_12345",
+            charges_enabled=True,
+            onboarding_completed=True
+        )
+
+    @patch('subscriptions.services.stripe.Customer.list')
+    @patch('subscriptions.services.stripe.Customer.create')
+    @patch('subscriptions.services.stripe.checkout.Session.create')
+    def test_create_subscription_checkout_fee_placement(self, mock_session_create, mock_customer_create, mock_customer_list):
+        # Setup mocks
+        mock_customer_list.return_value = MagicMock(data=[MagicMock(id="cus_test_123")])
+        mock_session_create.return_value = MagicMock(id="cs_test_123", url="http://example.com/checkout")
+
+        url = create_subscription_checkout(
+            follower=self.follower,
+            tipster=self.tipster,
+            price_id="price_123",
+            success_url="http://example.com/success",
+            cancel_url="http://example.com/cancel"
+        )
+
+        self.assertEqual(url, "http://example.com/checkout")
+
+        # Verify call arguments
+        mock_session_create.assert_called_once()
+        _, kwargs = mock_session_create.call_args
+
+        self.assertEqual(kwargs['mode'], 'subscription')
+        self.assertNotIn('stripe_account', kwargs)
+
+        # Verify application_fee_percent is passed correctly at Checkout Session level inside subscription_data
+        self.assertIn('subscription_data', kwargs)
+        self.assertIn('application_fee_percent', kwargs['subscription_data'])
+        self.assertEqual(kwargs['subscription_data']['application_fee_percent'], 20)
+
+        # It must contain transfer_data since we use Destination Charges for Subscriptions
+        self.assertIn('transfer_data', kwargs['subscription_data'])
+        self.assertEqual(kwargs['subscription_data']['transfer_data']['destination'], 'acct_12345')
+

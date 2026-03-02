@@ -61,6 +61,8 @@ def create_subscription_checkout(follower, tipster, price_id, success_url, cance
                 'destination': connected_account.stripe_account_id
             }
         }
+        # For recurring payments (mode='subscription'), application_fee_percent MUST be inside subscription_data.
+        # See Stripe API Reference: https://docs.stripe.com/api/checkout/sessions/create#create_checkout_session-subscription_data-application_fee_percent
     )
 
     logger.info(f"Created checkout session {session.id} for follower {follower.id} to tipster {tipster.id}")
