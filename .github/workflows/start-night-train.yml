@@ -70,26 +70,28 @@ jobs:
               return;
             }
 
-            console.log(`[night-train] Queue: [${queue.join(', ')}] (${queue.length} issues)`);
+            console.log(`[NTv2] Queue: [${queue.join(', ')}] (${queue.length} issues)`);
 
             // Find the first OPEN issue in the queue
-            for (const num of queue) {
+            for (let idx = 0; idx < queue.length; idx++) {
+              const num = queue[idx];
               try {
                 const { data: issue } = await github.rest.issues.get({
                   owner, repo, issue_number: num,
                 });
 
                 if (issue.state === 'open') {
-                  console.log(`[night-train] First open issue: #${num} — ${issue.title}`);
+                  console.log(`[NTv2] TELEMETRY: kick_issue=${num} kick_index=${idx} queue_length=${queue.length}`);
+                  console.log(`[NTv2] First open issue: #${num} — ${issue.title}`);
                   core.setOutput('issue_number', String(num));
                   core.setOutput('issue_title', issue.title);
                   core.setOutput('issue_body', issue.body || '(no body)');
                   return;
                 } else {
-                  console.log(`[night-train] Skipping #${num} (${issue.state})`);
+                  console.log(`[NTv2] skip_closed: #${num} (${issue.state})`);
                 }
               } catch (e) {
-                console.log(`[night-train] Skipping #${num} (error: ${e.message})`);
+                console.log(`[NTv2] skip_error: #${num} (${e.message})`);
               }
             }
 
