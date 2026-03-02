@@ -1,111 +1,85 @@
 name: Start Night Train
 
-# ─────────────────────────────────────────────────────────────────────────────
-# v2 — Queue-driven Night Train
-# Reads first OPEN issue from ops/night-queue.json and dispatches to Jules.
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────
+# Night Train v3 — Queue-driven, branch from main
+# Reads first OPEN issue from ops/night-queue.json → dispatches Jules.
+# Jules branches from main, PRs target main. No intermediate branch.
+# ─────────────────────────────────────────────────────────────────
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   issues: write
-  pull-requests: write
 
 jobs:
-  start-night-train:
-    name: Start Night Train (Queue-driven)
+  kick:
+    name: Kick first open issue from queue
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
-      - name: Checkout repository
+      # ── 1. Checkout main (to read queue file) ─────────────────────
+      - name: Checkout main
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main
 
-      # ── 2. Setup gh CLI token ───────────────────────────────────────────────
-      - name: Configure gh CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh auth setup-git
-
-      # ── 3. Ensure jules/train branch ────────────────────────────────────────
-      - name: Ensure jules/train branch exists
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh api "repos/${{ github.repository }}/branches/jules%2Ftrain" &>/dev/null; then
-            echo "Branch jules/train exists ✅"
-          else
-            echo "Creating jules/train from main..."
-            git checkout -b jules/train origin/main
-            git push origin jules/train
-            echo "Branch jules/train created ✅"
-          fi
-
-      # ── 4. Read first OPEN issue from queue ─────────────────────────────────
-      - name: Find first open issue from night-queue.json
+      # ── 2. Find first OPEN issue in queue ─────────────────────────
+      - name: Read queue and find first open issue
         id: find-issue
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-
-            // Read the queue file
             const queuePath = 'ops/night-queue.json';
+
             if (!fs.existsSync(queuePath)) {
-              core.setFailed(`Queue file ${queuePath} not found. Create it first.`);
+              core.setFailed(`Queue file ${queuePath} not found.`);
               return;
             }
 
             const queue = JSON.parse(fs.readFileSync(queuePath, 'utf-8'));
             if (!Array.isArray(queue) || queue.length === 0) {
-              core.setFailed(`Queue file must be a non-empty JSON array. Got: ${JSON.stringify(queue)}`);
+              core.setFailed('Queue must be a non-empty JSON array.');
               return;
             }
 
-            console.log(`[NTv2] Queue: [${queue.join(', ')}] (${queue.length} issues)`);
+            console.log(`[kick] Queue: [${queue.join(', ')}] (${queue.length} issues)`);
 
-            // Find the first OPEN issue in the queue
             for (let idx = 0; idx < queue.length; idx++) {
               const num = queue[idx];
               try {
                 const { data: issue } = await github.rest.issues.get({
-                  owner, repo, issue_number: num,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: num,
                 });
-
                 if (issue.state === 'open') {
-                  console.log(`[NTv2] TELEMETRY: kick_issue=${num} kick_index=${idx} queue_length=${queue.length}`);
-                  console.log(`[NTv2] First open issue: #${num} — ${issue.title}`);
+                  console.log(`[kick] ✅ First open issue: #${num} — ${issue.title}`);
+                  console.log(`[kick] TELEMETRY: kick_issue=${num} kick_index=${idx} queue_length=${queue.length}`);
                   core.setOutput('issue_number', String(num));
                   core.setOutput('issue_title', issue.title);
-                  core.setOutput('issue_body', issue.body || '(no body)');
+                  core.setOutput('issue_body', issue.body || '');
                   return;
-                } else {
-                  console.log(`[NTv2] skip_closed: #${num} (${issue.state})`);
                 }
+                console.log(`[kick] Skip #${num} (${issue.state})`);
               } catch (e) {
-                console.log(`[NTv2] skip_error: #${num} (${e.message})`);
+                console.log(`[kick] Skip #${num} (error: ${e.message})`);
               }
             }
 
-            core.setFailed('No open issues found in the queue. All done or queue is stale.');
+            core.setFailed('No open issues found in queue. Sprint may be complete.');
 
-      # ── 5. Setup Python ─────────────────────────────────────────────────────
+      # ── 3. Setup Python (for Jules API call) ──────────────────────
       - name: Setup Python
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
 
-      # ── 6. Invoke Jules API ─────────────────────────────────────────────────
+      # ── 4. Dispatch to Jules API ──────────────────────────────────
       - name: Invoke Jules API
-        id: invoke-jules
         env:
           JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
           ISSUE_NUMBER: ${{ steps.find-issue.outputs.issue_number }}
@@ -117,7 +91,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${JULES_API_KEY:-}" ]; then
-            echo "JULES_API_KEY secret is not set."
+            echo "::error::JULES_API_KEY secret is not set."
             echo "Run: gh secret set JULES_API_KEY --repo ${{ github.repository }}"
             exit 1
           fi
@@ -144,14 +118,15 @@ jobs:
             "## Repository Rules",
             "- Read AGENTS.md at the repo root for ALL coding conventions before writing any code.",
             "- NEVER throw at module top-level for missing env vars. Use handler-level guards.",
-            f"- Your PR body MUST contain \"Closes #{num}\".",
+            f'- Your PR body MUST contain "Closes #{num}".',
+            "- Your PR MUST target the main branch.",
             "- Backend CI: cd apps/backend/src && python manage.py check",
-            "- Migration rule: 1 migration maximum per PR. Never generate 2 in the same app.",
-            "- Stripe rule: all Stripe logic in services.py or webhooks.py only, never in views.py.",
-            "- application_fee_percent MUST be 20 (explicit constant, never settings.PLATFORM_FEE_PERCENT).",
+            "- Migration rule: 1 migration maximum per PR.",
+            "- Stripe rule: all Stripe logic in services.py or webhooks.py only.",
+            "- application_fee_percent MUST be 20 (explicit constant).",
             "",
             "## Branch Convention",
-            "Create your working branch from jules/train (the starting branch).",
+            "Create your working branch from main (the starting branch).",
             f"Branch naming: jules/{num}-<short-slug>",
           ])
 
@@ -159,7 +134,7 @@ jobs:
             "prompt": prompt,
             "sourceContext": {
               "source": f"sources/github/{owner}/{repo}",
-              "githubRepoContext": {"startingBranch": "jules/train"},
+              "githubRepoContext": {"startingBranch": "main"},
             },
             "requirePlanApproval": False,
             "automationMode": "AUTO_CREATE_PR",
@@ -175,57 +150,50 @@ jobs:
             method="POST",
           )
 
-          print(f"[start-night-train] Invoking Jules API for issue #{num}...")
-
+          print(f"[kick] Dispatching issue #{num} to Jules...")
           try:
             with urllib.request.urlopen(req) as resp:
               result = json.loads(resp.read())
               session = result.get("name", "unknown")
-              print(f"[start-night-train] Jules session created: {session}")
+              print(f"[kick] ✅ Jules session: {session}")
               with open(os.environ["GITHUB_ENV"], "a") as f:
                 f.write(f"JULES_SESSION={session}\n")
           except urllib.error.HTTPError as e:
-            body = e.read().decode(errors="replace")
-            print(f"[start-night-train] Jules API error ({e.code}):", file=sys.stderr)
+            err_body = e.read().decode(errors="replace")
+            print(f"[kick] ❌ Jules API error ({e.code}):", file=sys.stderr)
             try:
-              err = json.loads(body)
-              print(json.dumps({"status": err.get("status"), "message": err.get("message")}, indent=2), file=sys.stderr)
+              print(json.dumps(json.loads(err_body), indent=2), file=sys.stderr)
             except Exception:
-              print("(non-JSON response)", file=sys.stderr)
+              print(err_body, file=sys.stderr)
             sys.exit(1)
           PYEOF
 
-      # ── 7. Comment on issue ─────────────────────────────────────────────────
+      # ── 5. Comment on issue ───────────────────────────────────────
       - name: Comment on dispatched issue
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         if: success()
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueNumber = parseInt('${{ steps.find-issue.outputs.issue_number }}', 10);
-            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const num = parseInt('${{ steps.find-issue.outputs.issue_number }}', 10);
             const session = process.env.JULES_SESSION || 'unknown';
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: issueNumber,
+              issue_number: num,
               body: [
-                `🚂 **Night Train v2 started** via \`workflow_dispatch\``,
+                `🚂 **Night Train v3** dispatched this issue to Jules.`,
                 ``,
                 `| Field | Value |`,
                 `|-------|-------|`,
-                `| Issue | #${issueNumber} |`,
+                `| Issue | #${num} |`,
+                `| Session | \`${session}\` |`,
                 `| Run | [${context.runId}](${runUrl}) |`,
-                `| Jules session | \`${session}\` |`,
-                `| Starting branch | \`jules/train\` |`,
+                `| Base branch | \`main\` |`,
                 `| Triggered by | @${context.actor} |`,
                 `| Time | ${new Date().toISOString()} |`,
-                ``,
-                `Jules will create branch \`jules/${issueNumber}-<slug>\` and open a PR with \`Closes #${issueNumber}\`.`,
-                ``,
-                `> Queue-driven dispatch — no label required. Autoqueue will chain subsequent issues.`,
               ].join('\n'),
             });
-
-            console.log(`Commented on issue #${issueNumber}`);
+            console.log(`[kick] Commented on issue #${num}`);
