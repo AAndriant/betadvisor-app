@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 
 // API URL from environment — set EXPO_PUBLIC_API_URL in apps/mobile/.env
 // Fallback: Android emulator uses 10.0.2.2, iOS/web use localhost
@@ -35,6 +36,99 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+let isRefreshing = false;
+let failedQueue: { resolve: (value?: unknown) => void; reject: (reason?: any) => void }[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = 'Bearer ' + token;
+            return api(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        let refreshToken;
+        if (Platform.OS === 'web') {
+          refreshToken = localStorage.getItem('refreshToken');
+        } else {
+          refreshToken = await SecureStore.getItemAsync('refreshToken');
+        }
+
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Use a clean axios instance to avoid interceptor loops
+        const refreshResponse = await axios.post(`${API_URL}/api/auth/token/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const newAccessToken = refreshResponse.data.access;
+        // Optionally update refresh token if returned
+        const newRefreshToken = refreshResponse.data.refresh;
+
+        if (Platform.OS === 'web') {
+          localStorage.setItem('accessToken', newAccessToken);
+          if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
+        } else {
+          await SecureStore.setItemAsync('accessToken', newAccessToken);
+          if (newRefreshToken) await SecureStore.setItemAsync('refreshToken', newRefreshToken);
+        }
+
+        api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        processQueue(null, newAccessToken);
+        return api(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError, null);
+
+        // Clear tokens and redirect to login
+        if (Platform.OS === 'web') {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        } else {
+          await SecureStore.deleteItemAsync('accessToken');
+          await SecureStore.deleteItemAsync('refreshToken');
+        }
+
+        router.replace('/login');
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
