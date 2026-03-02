@@ -27,10 +27,9 @@ class OnboardingLinkView(APIView):
         except ConnectedAccount.DoesNotExist:
             return Response({'error': 'ConnectedAccount not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Use absolute URIs for return and refresh URLs, falling back to basic paths if needed
-        # In a real app, these might come from settings, but for now we'll construct them
-        return_url = request.build_absolute_uri('/api/connect/return/')
-        refresh_url = request.build_absolute_uri('/api/connect/refresh/')
+        # Accept return_url and refresh_url via GET parameters to support deep links (Expo)
+        return_url = request.GET.get('return_url') or request.build_absolute_uri('/api/connect/return/')
+        refresh_url = request.GET.get('refresh_url') or request.build_absolute_uri('/api/connect/refresh/')
 
         try:
             link = create_onboarding_link(
@@ -42,3 +41,25 @@ class OnboardingLinkView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         except StripeConnectError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ConnectedAccountStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            account = request.user.connected_account
+            return Response({
+                'exists': True,
+                'stripe_account_id': account.stripe_account_id,
+                'charges_enabled': account.charges_enabled,
+                'payouts_enabled': account.payouts_enabled,
+                'onboarding_completed': account.onboarding_completed,
+            }, status=status.HTTP_200_OK)
+        except ConnectedAccount.DoesNotExist:
+            return Response({
+                'exists': False,
+                'charges_enabled': False,
+                'payouts_enabled': False,
+                'onboarding_completed': False,
+            }, status=status.HTTP_200_OK)

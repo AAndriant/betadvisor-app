@@ -164,3 +164,23 @@ export const pollTicketStatus = async (ticketId: string) => {
   const { data } = await api.get(`/api/tickets/${ticketId}/status/`);
   return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
 };
+
+export const createConnectAccount = async () => {
+  const response = await api.post('/api/connect/create-account/');
+  return response.data;
+};
+
+export const getOnboardingLink = async (returnUrl: string, refreshUrl: string) => {
+  const response = await api.get('/api/connect/onboarding-link/', {
+    params: {
+      return_url: returnUrl,
+      refresh_url: refreshUrl,
+    },
+  });
+  return response.data;
+};
+
+export const getConnectStatus = async () => {
+  const response = await api.get('/api/connect/status/');
+  return response.data;
+};
