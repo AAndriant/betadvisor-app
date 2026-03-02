@@ -1,0 +1,20 @@
+{
+  "id": "evt_1subcreated",
+  "object": "event",
+  "api_version": "2023-10-16",
+  "created": 1700000002,
+  "data": {
+    "object": {
+      "id": "sub_123",
+      "object": "subscription",
+      "status": "active"
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_125",
+    "idempotency_key": "idemp_125"
+  },
+  "type": "customer.subscription.created"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "evt_1checkoutcompleted",
+  "object": "event",
+  "api_version": "2023-10-16",
+  "created": 1700000001,
+  "data": {
+    "object": {
+      "id": "cs_test_123",
+      "object": "checkout.session",
+      "mode": "subscription",
+      "customer": "cus_123",
+      "subscription": "sub_123",
+      "metadata": {
+        "follower_id": "1",
+        "tipster_id": "2"
+      }
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_124",
+    "idempotency_key": "idemp_124"
+  },
+  "type": "checkout.session.completed"
+}
