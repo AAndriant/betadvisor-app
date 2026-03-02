@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -16,6 +17,7 @@ router.register(r'users', UserViewSet, basename='user')
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Routes API
+    path('api/health/', lambda r: JsonResponse({'status': 'ok'})),
     path('api/', include(router.urls)),
     path('api/me/', MyProfileView.as_view(), name='my-profile'),
 
