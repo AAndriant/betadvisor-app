@@ -163,10 +163,13 @@ jobs:
               /^ops\/night-train-state\.json$/,
               /^ops\/night-queue\.json$/,
               /^ops\/queues\//,
-              /^plan\.md$/,
-              /^README/i,
-              /^CONTRIBUTING/i,
-              /^\.gitignore$/,
+              /(^|\/)plan\.md$/,
+              /(^|\/)README/i,
+              /(^|\/)CONTRIBUTING/i,
+              /(^|\/)CHANGELOG/i,
+              /(^|\/)LICENSE/i,
+              /(^|\/)\.gitignore$/,
+              /^docs\//,
             ];
 
             const { data: prFiles } = await github.rest.pulls.listFiles({
