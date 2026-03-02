@@ -140,6 +140,9 @@ STRIPE_WEBHOOK_SECRET = _webhook_secret or 'whsec_placeholder_dev_only'
 # Platform Stripe Account
 STRIPE_PLATFORM_ACCOUNT_ID = env('STRIPE_PLATFORM_ACCOUNT_ID', default='')
 
+# Subscription Price ID
+STRIPE_SUBSCRIPTION_PRICE_ID = env('STRIPE_SUBSCRIPTION_PRICE_ID', default='')
+
 # ─────────────────────────────────────────────────────────────
 # PLATFORM FEE — CONSTANTE 20%
 # ─────────────────────────────────────────────────────────────
