@@ -23,10 +23,13 @@ class SubscribeView(APIView):
 
     def post(self, request, *args, **kwargs):
         tipster_id = request.data.get('tipster_id')
-        price_id = request.data.get('price_id')
+        price_id = settings.STRIPE_SUBSCRIPTION_PRICE_ID
 
-        if not tipster_id or not price_id:
-            return Response({'error': 'tipster_id and price_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not tipster_id:
+            return Response({'error': 'tipster_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not price_id:
+            return Response({'error': 'System misconfigured: STRIPE_SUBSCRIPTION_PRICE_ID is missing'}, status=status.HTTP_400_BAD_REQUEST)
 
         tipster = get_object_or_404(CustomUser, id=tipster_id)
 
