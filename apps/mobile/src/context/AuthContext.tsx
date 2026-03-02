@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { api } from '../services/api';
+import { api, authEmitter } from '../services/api';
 
 interface User {
   username: string;
@@ -52,6 +52,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     loadToken();
+
+    const unsubscribe = authEmitter.subscribe(() => {
+      setAccessToken(null);
+      setUser(null);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (username: string, password: string) => {
