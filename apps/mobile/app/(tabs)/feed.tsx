@@ -9,9 +9,6 @@ export default function FeedScreen() {
   const { data: bets, isLoading, error, refetch } = useFeed();
   const router = useRouter();
 
-  // 🔍 DEBUG: Inspecter la structure des données reçues du backend
-  console.log('FEED DATA:', JSON.stringify(bets, null, 2));
-
   const handleNavigateToComments = (betId: string) => {
     router.push({
       pathname: '/comments/[id]',
