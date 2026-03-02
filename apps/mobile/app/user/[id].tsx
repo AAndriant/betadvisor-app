@@ -7,7 +7,7 @@ import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { fetchUserProfile, fetchUserBets } from '../../src/services/users';
 import { toggleFollow } from '../../src/services/social';
-import { fetchMyProfile } from '../../src/services/api';
+import { fetchMyProfile, getMySubscriptions } from '../../src/services/api';
 
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -18,6 +18,12 @@ export default function UserProfileScreen() {
     const { data: currentUser } = useQuery({
         queryKey: ['myProfile'],
         queryFn: fetchMyProfile,
+    });
+
+    // Fetch subscriptions to see if we are already subscribed
+    const { data: mySubscriptions } = useQuery({
+        queryKey: ['mySubscriptions'],
+        queryFn: getMySubscriptions,
     });
 
     // Fetch user profile
@@ -81,7 +87,17 @@ export default function UserProfileScreen() {
         });
     };
 
+    const handleSubscribe = () => {
+        router.push({
+            pathname: '/subscribe',
+            params: { tipsterId: id }
+        });
+    };
+
     const isOwnProfile = currentUser?.id === id;
+    const isSubscribed = Array.isArray(mySubscriptions)
+        ? mySubscriptions.some((sub: any) => String(sub.tipster) === String(id))
+        : false;
 
     // Loading state
     if (isLoadingProfile) {
@@ -142,6 +158,8 @@ export default function UserProfileScreen() {
                         isFollowed={userProfile.is_followed_by_me}
                         onToggleFollow={handleToggleFollow}
                         isOwnProfile={isOwnProfile}
+                        isSubscribed={isSubscribed}
+                        onSubscribe={handleSubscribe}
                     />
                 }
                 renderItem={({ item }) => (
