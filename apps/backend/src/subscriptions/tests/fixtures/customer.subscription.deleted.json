@@ -1,0 +1,20 @@
+{
+  "id": "evt_1subdeleted",
+  "object": "event",
+  "api_version": "2023-10-16",
+  "created": 1700000004,
+  "data": {
+    "object": {
+      "id": "sub_123",
+      "object": "subscription",
+      "status": "canceled"
+    }
+  },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": {
+    "id": "req_127",
+    "idempotency_key": "idemp_127"
+  },
+  "type": "customer.subscription.deleted"
+}
