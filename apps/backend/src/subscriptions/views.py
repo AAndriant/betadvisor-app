@@ -23,10 +23,9 @@ class SubscribeView(APIView):
 
     def post(self, request, *args, **kwargs):
         tipster_id = request.data.get('tipster_id')
-        price_id = request.data.get('price_id')
 
-        if not tipster_id or not price_id:
-            return Response({'error': 'tipster_id and price_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not tipster_id:
+            return Response({'error': 'tipster_id is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         tipster = get_object_or_404(CustomUser, id=tipster_id)
 
@@ -49,7 +48,6 @@ class SubscribeView(APIView):
             checkout_url = create_subscription_checkout(
                 follower=request.user,
                 tipster=tipster,
-                price_id=price_id,
                 success_url=success_url,
                 cancel_url=cancel_url
             )
