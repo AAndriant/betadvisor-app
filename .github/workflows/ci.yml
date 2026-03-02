@@ -5,10 +5,16 @@ on:
     branches:
       - main
       - "jules/**"
+    paths-ignore:
+      - 'ops/night-train-state.json'
+      - 'ops/queues/**'
   pull_request:
     branches:
       - main
       - "jules/**"
+    paths-ignore:
+      - 'ops/night-train-state.json'
+      - 'ops/queues/**'
 
 # ─────────────────────────────────────────────────────────────
 # cancel-in-progress: true → on garde le dernier push seulement
