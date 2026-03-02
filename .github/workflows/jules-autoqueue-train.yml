@@ -156,7 +156,75 @@ jobs:
             }
 
             // ═══════════════════════════════════════════════════════════
-            // STEP 3 — Merge PR → jules/train (AFTER extraction + validation)
+            // STEP 2b — PROOF-OF-WORK GUARD (Sprint 4 hardening)
+            // Must run BEFORE merge to prevent false queue progression.
+            // ═══════════════════════════════════════════════════════════
+            const NON_SIGNIFICANT_PATTERNS = [
+              /^ops\/night-train-state\.json$/,
+              /^ops\/night-queue\.json$/,
+              /^ops\/queues\//,
+              /^plan\.md$/,
+              /^README/i,
+              /^CONTRIBUTING/i,
+              /^\.gitignore$/,
+            ];
+
+            const { data: prFiles } = await github.rest.pulls.listFiles({
+              owner, repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const allFiles = prFiles.map(f => f.filename);
+            const meaningfulFiles = allFiles.filter(f =>
+              !NON_SIGNIFICANT_PATTERNS.some(p => p.test(f))
+            );
+            const totalAdditions = prFiles.reduce((s, f) => s + f.additions, 0);
+            const totalDeletions = prFiles.reduce((s, f) => s + f.deletions, 0);
+
+            console.log(`[NTv2] PR #${pr.number} diff: ${allFiles.length} files, +${totalAdditions}/-${totalDeletions}`);
+            console.log(`[NTv2] PR files: ${allFiles.join(', ')}`);
+            console.log(`[NTv2] Meaningful files (${meaningfulFiles.length}): ${meaningfulFiles.join(', ') || '(none)'}`);
+
+            const isNoOp = meaningfulFiles.length === 0 || (totalAdditions + totalDeletions < 3 && meaningfulFiles.length === 0);
+
+            if (isNoOp) {
+              console.error(`[NTv2] ❌ HARD_STOP_NOOP: PR #${pr.number} has no meaningful changes.`);
+              console.log(`[NTv2] TELEMETRY: noop_issue=${issueNumber} noop_pr=${pr.number} files=${allFiles.length} meaningful=${meaningfulFiles.length} additions=${totalAdditions} deletions=${totalDeletions}`);
+              try {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: issueNumber,
+                  labels: ['needs:human'],
+                });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNumber,
+                  body: [
+                    `⚠️ **Night Train HALT — No meaningful changes detected**`,
+                    ``,
+                    `PR [#${pr.number}](https://github.com/${owner}/${repo}/pull/${pr.number}) has no significant code changes.`,
+                    `Train halted to prevent false completion.`,
+                    ``,
+                    `| Field | Value |`,
+                    `|-------|-------|`,
+                    `| PR | #${pr.number} |`,
+                    `| Total files | ${allFiles.length} |`,
+                    `| Meaningful files | ${meaningfulFiles.length} |`,
+                    `| All files | \`${allFiles.join(', ') || '(none)'}\` |`,
+                    `| Diff | +${totalAdditions}/-${totalDeletions} |`,
+                    `| Run | [${context.runId}](${runUrl}) |`,
+                    ``,
+                    `**Action required:** Review the PR manually, then re-trigger or close.`,
+                  ].join('\n'),
+                });
+              } catch (e) { /* best effort */ }
+              // Do NOT merge, do NOT close issue, do NOT chain.
+              return;
+            }
+
+            console.log(`[NTv2] Proof-of-work: PASS (${meaningfulFiles.length} meaningful files, +${totalAdditions}/-${totalDeletions})`);
+
+            // ═══════════════════════════════════════════════════════════
+            // STEP 3 — Merge PR → jules/train (AFTER extraction + validation + proof-of-work)
             // ═══════════════════════════════════════════════════════════
             let mergeSuccess = false;
             try {
