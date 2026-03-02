@@ -29,8 +29,8 @@ class OnboardingLinkView(APIView):
             return Response({'error': 'ConnectedAccount not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         # Use explicit settings-based URLs for return and refresh URLs, falling back to basic paths if needed
-        return_url = getattr(settings, 'CHECKOUT_SUCCESS_URL', 'betadvisor://checkout/success')
-        refresh_url = getattr(settings, 'CHECKOUT_CANCEL_URL', 'betadvisor://checkout/cancel')
+        return_url = getattr(settings, 'ONBOARDING_RETURN_URL', 'betadvisor://onboarding-return')
+        refresh_url = getattr(settings, 'ONBOARDING_REFRESH_URL', 'betadvisor://onboarding-refresh')
 
         try:
             link = create_onboarding_link(
