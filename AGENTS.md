@@ -33,13 +33,13 @@
 
 ---
 
-## Night Train — Jules Workflow
+## Night Train v3 — Jules Workflow
 
-- **Night branch** : `jules/train`
-- Jules démarre **toujours** depuis `jules/train` (via `starting_branch`).
+- Jules démarre **toujours** depuis `main` (via `startingBranch: main`).
 - Branches de travail : `jules/<issue-number>-<short-slug>` (ex: `jules/42-connect-account-model`).
-- Après CI success sur une branche Jules → autoqueue merge + chaîne l'issue suivante.
-- **Matin** : review `jules/train` → merge → `main` → reset train.
+- PRs ciblent **`main`** directement (squash merge).
+- Après CI success sur une branche Jules → autoqueue valide, merge squash → main, chaîne l'issue suivante.
+- **Matin** : Antigravity review les commits sur `main` + issues fermées. Pas de merge manuel nécessaire.
 
 ---
 
@@ -141,6 +141,7 @@ N/A  (ou nom exact de la migration)
 
 ### Règle de liaison
 `Closes #N` doit être présent dans le body. L'autoqueue parse ce pattern pour chaîner.
+La PR doit **cibler `main`** (et non une autre branche).
 
 ---
 
@@ -156,7 +157,7 @@ Blocked by #<NUMÉRO_GITHUB_RÉEL>
 
 ## Interdictions absolues pour Jules
 
-- Ne jamais push directement sur `jules/train`
+- Ne jamais push directement sur `main`
 - Ne jamais modifier les fichiers `.github/workflows/`
 - Ne jamais créer plus d'une migration par PR
 - Ne jamais implémenter des features non décrites dans l'issue assignée
@@ -167,28 +168,30 @@ Blocked by #<NUMÉRO_GITHUB_RÉEL>
 
 ## Morning Review (Antigravity)
 
-```bash
-# 1. Voir ce que Jules a produit la nuit
-git fetch origin
-git log origin/main..origin/jules/train --oneline
+Avec Night Train v3, tout est mergé directement sur `main` (squash merge).
+Pas besoin de merger un train branch ni de le reset.
 
-# 2. State des issues
+```bash
+# 1. Voir les commits de la nuit sur main
+git fetch origin
+git log --since="12 hours ago" --oneline origin/main
+
+# 2. Issues fermées cette nuit
+gh issue list --repo AAndriant/betadvisor-app --state closed \
+  --json number,title,labels,closedAt \
+  --jq '.[] | select(.closedAt > (now - 43200 | strftime("%Y-%m-%dT%H:%M:%SZ"))) | "#\(.number) | \(.title)"'
+
+# 3. Issues encore ouvertes (restantes)
 gh issue list --repo AAndriant/betadvisor-app --state open \
   --json number,title,labels \
   --jq '.[] | "#\(.number) | \([.labels[].name] | join(", ")) | \(.title)"'
 
-# 3. Créer la PR de review
-gh pr create --base main --head jules/train \
-  --title "Night Train — $(date +%Y-%m-%d)" \
-  --body "Morning review du train nocturne."
-
-# 4. Après merge → reset le train
-gh workflow run "Reset jules/train" --repo AAndriant/betadvisor-app
+# 4. Vérifier la queue
+cat ops/night-queue.json
 ```
 
 **Si Jules s'arrête en cours de nuit :**
 ```bash
-gh issue edit <N> --repo AAndriant/betadvisor-app --remove-label agent:jules
-sleep 3
-gh issue edit <N> --repo AAndriant/betadvisor-app --add-label agent:jules
+# Re-dispatcher le train (kick le prochain issue open de la queue)
+gh workflow run "Start Night Train" --ref main
 ```
