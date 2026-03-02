@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { api } from '../services/api';
+import { performLogout, onForceLogout } from '../services/auth';
 
 interface User {
   username: string;
@@ -24,6 +25,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Listen for forced logouts from interceptors
+    const unsubscribe = onForceLogout(() => {
+      setAccessToken(null);
+      setUser(null);
+    });
+
     const loadToken = async () => {
       try {
         let token;
@@ -52,6 +59,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     loadToken();
+
+    return () => unsubscribe();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -83,13 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     setIsLoading(true);
     try {
-      if (Platform.OS === 'web') {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      } else {
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-      }
+      await performLogout();
       setAccessToken(null);
       setUser(null);
     } catch (error) {

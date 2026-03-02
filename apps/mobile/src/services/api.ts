@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import { performLogout } from './auth';
 
 // API URL from environment — set EXPO_PUBLIC_API_URL in apps/mobile/.env
 // Fallback: Android emulator uses 10.0.2.2, iOS/web use localhost
@@ -16,6 +17,24 @@ export const api = axios.create({
 });
 
 // Add a request interceptor to inject the token
+// Global state for token refresh mutex
+let isRefreshing = false;
+let refreshSubscribers: { resolve: (token: string) => void, reject: (error: any) => void }[] = [];
+
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach(({ resolve }) => resolve(token));
+  refreshSubscribers = [];
+};
+
+const onRefreshFailed = (error: any) => {
+  refreshSubscribers.forEach(({ reject }) => reject(error));
+  refreshSubscribers = [];
+};
+
+const addRefreshSubscriber = (resolve: (token: string) => void, reject: (error: any) => void) => {
+  refreshSubscribers.push({ resolve, reject });
+};
+
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -35,6 +54,90 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    // Avoid infinite loops, check if this is already a retry or if we're hitting the refresh endpoint
+    if (originalRequest.url === '/api/auth/token/refresh/') {
+      return Promise.reject(error);
+    }
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      let refreshToken;
+      try {
+        if (Platform.OS === 'web') {
+          refreshToken = localStorage.getItem('refreshToken');
+        } else {
+          refreshToken = await SecureStore.getItemAsync('refreshToken');
+        }
+      } catch (e) {
+        console.error('Error reading refresh token', e);
+      }
+
+      if (!refreshToken) {
+        // No refresh token, perform clean logout mechanism
+        await performLogout();
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // Wait for the token to be refreshed
+        return new Promise((resolve, reject) => {
+          addRefreshSubscriber(
+            (token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            },
+            (err) => {
+              reject(err);
+            }
+          );
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const response = await axios.post(`${API_URL}/api/auth/token/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const newAccessToken = response.data.access;
+        // Optionally update refresh token if the backend rotates it
+        const newRefreshToken = response.data.refresh || refreshToken;
+
+        if (Platform.OS === 'web') {
+          localStorage.setItem('accessToken', newAccessToken);
+          localStorage.setItem('refreshToken', newRefreshToken);
+        } else {
+          await SecureStore.setItemAsync('accessToken', newAccessToken);
+          await SecureStore.setItemAsync('refreshToken', newRefreshToken);
+        }
+
+        api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
+        onRefreshed(newAccessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed (e.g. refresh token expired)
+        onRefreshFailed(refreshError);
+        await performLogout();
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     return Promise.reject(error);
   }
 );
