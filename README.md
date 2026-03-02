@@ -160,6 +160,7 @@ Le conflit de migrations `tickets/0002` (deux branches parallèles de migration 
 
 | Endpoint | Description |
 |----------|-------------|
+| `POST /api/auth/register/` | S'inscrire et obtenir JWT |
 | `POST /api/auth/token/` | Obtenir JWT |
 | `POST /api/auth/token/refresh/` | Rafraîchir JWT |
 | `GET /api/bets/` | Feed global des paris |
