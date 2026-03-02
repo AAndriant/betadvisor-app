@@ -14,7 +14,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'stats', 'wallet_balance', 'avatar_url', 'follower_count', 'is_followed_by_me']
+        fields = ['id', 'username', 'email', 'stats', 'wallet_balance', 'avatar_url', 'follower_count', 'is_followed_by_me', 'is_tipster']
 
     def get_avatar_url(self, obj):
         return f"https://ui-avatars.com/api/?name={obj.username}&background=10b981&color=fff"

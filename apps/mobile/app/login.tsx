@@ -59,7 +59,7 @@ export default function Login() {
         </View>
 
         <TouchableOpacity
-          className={`w-full bg-blue-600 py-3 rounded-md items-center ${isSubmitting ? 'opacity-70' : ''}`}
+          className={`w-full bg-blue-600 py-3 rounded-md items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
           onPress={handleLogin}
           disabled={isSubmitting}
         >
@@ -68,6 +68,10 @@ export default function Login() {
           ) : (
             <Text className="text-white font-bold text-lg">Se connecter</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/signup')}>
+          <Text className="text-blue-600 text-center font-medium">Vous n'avez pas de compte ? S'inscrire</Text>
         </TouchableOpacity>
       </View>
     </View>
