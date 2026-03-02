@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { HaloAvatar } from './ui/HaloAvatar';
 import { TrendingUp, Award, CheckCircle2 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 interface ProfileHeaderProps {
   user: {
@@ -19,10 +20,13 @@ interface ProfileHeaderProps {
   isFollowed?: boolean;
   onToggleFollow?: () => void;
   isOwnProfile?: boolean;
+  userId?: string;
 }
 
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, onToggleFollow, isOwnProfile }) => {
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, onToggleFollow, isOwnProfile, userId }) => {
+  const router = useRouter();
+
   return (
     <View className="px-4 pt-2 pb-6 bg-slate-950">
       {/* Top Row: Avatar & Actions */}
@@ -34,23 +38,36 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, 
           premium={user.role === 'TIPSTER'}
         />
 
-        <View className="flex-row gap-4">
-          <View className="items-center">
+        <View className="flex-row gap-2">
+          <View className="items-center mr-2">
             <Text className="text-white font-bold text-lg">{user.stats?.followers || 0}</Text>
             <Text className="text-slate-400 text-xs">Abonnés</Text>
           </View>
           {!isOwnProfile && (
-            <TouchableOpacity
-              onPress={onToggleFollow}
-              className={`px-6 py-2 rounded-full justify-center ${isFollowed
-                  ? 'bg-emerald-500'
-                  : 'bg-transparent border border-slate-600'
-                }`}
-            >
-              <Text className="text-white font-bold text-sm">
-                {isFollowed ? 'Abonné' : 'Suivre'}
-              </Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={onToggleFollow}
+                className={`px-4 py-2 rounded-full justify-center ${isFollowed
+                    ? 'bg-emerald-500'
+                    : 'bg-transparent border border-slate-600'
+                  }`}
+              >
+                <Text className="text-white font-bold text-sm">
+                  {isFollowed ? 'Abonné' : 'Suivre'}
+                </Text>
+              </TouchableOpacity>
+
+              {user.role === 'TIPSTER' && userId && (
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/subscribe', params: { tipster_id: userId } })}
+                  className="px-4 py-2 rounded-full justify-center bg-indigo-500"
+                >
+                  <Text className="text-white font-bold text-sm">
+                    S'abonner
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
       </View>

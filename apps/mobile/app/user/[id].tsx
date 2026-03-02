@@ -142,6 +142,7 @@ export default function UserProfileScreen() {
                         isFollowed={userProfile.is_followed_by_me}
                         onToggleFollow={handleToggleFollow}
                         isOwnProfile={isOwnProfile}
+                        userId={id}
                     />
                 }
                 renderItem={({ item }) => (
