@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/', include(router.urls)),
     path('api/me/', MyProfileView.as_view(), name='my-profile'),
 
+    path('api/auth/', include('accounts.urls')),
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/tickets/', include('tickets.urls')),
