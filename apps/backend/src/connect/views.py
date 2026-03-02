@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -27,10 +28,9 @@ class OnboardingLinkView(APIView):
         except ConnectedAccount.DoesNotExist:
             return Response({'error': 'ConnectedAccount not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Use absolute URIs for return and refresh URLs, falling back to basic paths if needed
-        # In a real app, these might come from settings, but for now we'll construct them
-        return_url = request.build_absolute_uri('/api/connect/return/')
-        refresh_url = request.build_absolute_uri('/api/connect/refresh/')
+        # Use explicit settings-based URLs for return and refresh URLs, falling back to basic paths if needed
+        return_url = getattr(settings, 'CHECKOUT_SUCCESS_URL', 'betadvisor://checkout/success')
+        refresh_url = getattr(settings, 'CHECKOUT_CANCEL_URL', 'betadvisor://checkout/cancel')
 
         try:
             link = create_onboarding_link(

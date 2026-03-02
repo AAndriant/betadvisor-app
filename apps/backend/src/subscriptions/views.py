@@ -40,10 +40,9 @@ class SubscribeView(APIView):
         if has_active_subscription:
             return Response({'error': 'Active subscription already exists'}, status=status.HTTP_409_CONFLICT)
 
-        # Let the frontend determine the success/cancel URLs, or fallback to defaults
-        # To avoid passing full request URLs in testing or typical setups, we use placeholder or frontend provided URLs
-        success_url = request.data.get('success_url', request.build_absolute_uri('/') + 'success/')
-        cancel_url = request.data.get('cancel_url', request.build_absolute_uri('/') + 'cancel/')
+        # Let the frontend determine the success/cancel URLs, or fallback to defaults from settings
+        success_url = request.data.get('success_url', getattr(settings, 'CHECKOUT_SUCCESS_URL', 'betadvisor://checkout/success'))
+        cancel_url = request.data.get('cancel_url', getattr(settings, 'CHECKOUT_CANCEL_URL', 'betadvisor://checkout/cancel'))
 
         try:
             checkout_url = create_subscription_checkout(
