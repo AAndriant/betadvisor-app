@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     # Local Apps
     'core',
     'users',
+    'accounts',
     'finance',
     'bets',
     'sports',
