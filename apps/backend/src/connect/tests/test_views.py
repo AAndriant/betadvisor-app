@@ -8,6 +8,31 @@ from django.conf import settings
 
 User = get_user_model()
 
+class CreateConnectedAccountViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create(username="testuser", email="test@example.com")
+
+    def test_unauthenticated(self):
+        response = self.client.post(reverse('connect:create-account'))
+        self.assertEqual(response.status_code, 401)
+
+    @patch('connect.views.create_express_account')
+    def test_authenticated_creates_account(self, mock_create):
+        self.client.force_authenticate(user=self.user)
+        account = ConnectedAccount(
+            user=self.user,
+            stripe_account_id="acct_12345",
+            charges_enabled=False,
+            onboarding_completed=False
+        )
+        mock_create.return_value = account
+
+        response = self.client.post(reverse('connect:create-account'))
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['stripe_account_id'], "acct_12345")
+        mock_create.assert_called_once_with(self.user)
+
 class OnboardingLinkViewTest(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -20,6 +45,13 @@ class OnboardingLinkViewTest(TestCase):
             charges_enabled=False,
             onboarding_completed=False
         )
+
+    def test_unauthenticated(self):
+        self.client.logout()
+        # Force APIClient to be unauthenticated for this request
+        self.client.force_authenticate(user=None)
+        response = self.client.get(reverse('connect:onboarding-link'))
+        self.assertEqual(response.status_code, 401)
 
     @patch('connect.views.create_onboarding_link')
     def test_onboarding_link_uses_settings_urls(self, mock_create_onboarding_link):
