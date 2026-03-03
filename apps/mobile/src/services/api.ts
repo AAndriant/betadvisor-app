@@ -308,9 +308,9 @@ export interface DashboardData {
   total_subscribers_ever: number;
   monthly_revenue_estimate: number;
   recent_subscriptions: Array<{
-    tipster: number;
+    follower_username: string;
     status: string;
-    current_period_end: string | null;
+    created_at: string;
   }>;
 }
 
