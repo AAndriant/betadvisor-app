@@ -4,6 +4,11 @@ from datetime import datetime, timezone
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
 from subscriptions.models import Subscription, StripeEvent
+from subscriptions.emails import (
+    send_new_subscriber_email,
+    send_subscription_canceled_email,
+    send_welcome_subscriber_email
+)
 from users.models import CustomUser
 from connect.models import ConnectedAccount
 
@@ -98,6 +103,10 @@ def _handle_checkout_session_completed(event):
     )
     logger.info(f"checkout.session.completed: updated/created subscription {subscription.id}")
 
+    if created:
+        send_new_subscriber_email(tipster, follower)
+        send_welcome_subscriber_email(follower, tipster)
+
 
 def _handle_invoice_paid(event):
     invoice = event['data']['object']
@@ -168,6 +177,8 @@ def _handle_customer_subscription_deleted(event):
     subscription.status = 'canceled'
     subscription.save()
     logger.info(f"customer.subscription.deleted: updated subscription {subscription.id} status to canceled")
+
+    send_subscription_canceled_email(subscription.tipster, subscription.follower)
 
 
 def _handle_account_updated(event):
