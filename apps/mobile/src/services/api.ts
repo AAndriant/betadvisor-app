@@ -122,19 +122,7 @@ api.interceptors.response.use(
       } catch (err) {
         processQueue(err, null);
 
-        if (Platform.OS === 'web') {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-        } else {
-          await SecureStore.deleteItemAsync('accessToken');
-          await SecureStore.deleteItemAsync('refreshToken');
-        }
-
-        authEmitter.emit();
-
-        if (router) {
-          router.replace('/login');
-        }
+        await logout();
 
         return Promise.reject(err);
       } finally {
@@ -165,6 +153,20 @@ export interface UserProfile {
   username: string;
   avatar_url?: string;
 }
+
+export const logout = async () => {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  } else {
+    await SecureStore.deleteItemAsync('accessToken');
+    await SecureStore.deleteItemAsync('refreshToken');
+  }
+  authEmitter.emit();
+  if (router) {
+    router.replace('/login');
+  }
+};
 
 export const getUserStats = async (): Promise<UserStats> => {
   const response = await api.get('/api/me/stats/');
