@@ -318,3 +318,20 @@ export const getDashboard = async (): Promise<DashboardData> => {
   const { data } = await api.get('/api/me/dashboard/');
   return data;
 };
+
+export const settleBet = async (betId: string, outcome: 'WON' | 'LOST' | 'VOID') => {
+  const { data } = await api.post(`/api/bets/${betId}/settle/`, { outcome });
+  return data;
+};
+
+export const cancelSubscription = async (subscriptionId: string) => {
+  const { data } = await api.post('/api/subscriptions/cancel/', {
+    subscription_id: subscriptionId,
+  });
+  return data;
+};
+
+export const requestPasswordReset = async (email: string) => {
+  const { data } = await api.post('/api/auth/password-reset/', { email });
+  return data;
+};

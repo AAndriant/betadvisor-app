@@ -74,3 +74,21 @@ def create_subscription_checkout(follower, tipster, success_url, cancel_url) -> 
 
     logger.info(f"Created checkout session {session.id} for follower {follower.id} to tipster {tipster.id}")
     return session.url
+
+
+def cancel_subscription(subscription):
+    """Cancel a subscription via Stripe API."""
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    if not stripe.api_key:
+        raise ValueError("Missing STRIPE_SECRET_KEY")
+
+    try:
+        stripe.Subscription.cancel(subscription.stripe_subscription_id)
+        subscription.status = 'canceled'
+        subscription.save()
+        logger.info(f"Canceled subscription {subscription.id} (stripe: {subscription.stripe_subscription_id})")
+    except stripe.error.InvalidRequestError as e:
+        logger.error(f"Stripe error canceling subscription: {e}")
+        # If Stripe says it's already canceled, update our DB anyway
+        subscription.status = 'canceled'
+        subscription.save()

@@ -118,3 +118,67 @@ class BetTicketTestCase(TestCase):
         self.assertEqual(ticket.match_title, "Real Madrid vs Barcelona")
         self.assertEqual(ticket.stake, Decimal("100.00"))
         self.assertEqual(ticket.status, "PENDING")
+
+
+class BetSettlementTests(APITestCase):
+    def setUp(self):
+        self.tipster = User.objects.create_user(username="tipster", email="t@t.com", password="p")
+        self.other_user = User.objects.create_user(username="other", email="o@t.com", password="p")
+        self.bet = BetTicket.objects.create(
+            author=self.tipster,
+            match_title="PSG vs Real Madrid",
+            selection="PSG Win",
+            odds=Decimal("2.50"),
+            stake=Decimal("10.00"),
+            status=BetTicket.BetStatus.PENDING
+        )
+
+    def test_settle_won(self):
+        self.client.force_authenticate(user=self.tipster)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "WON"})
+        self.assertEqual(response.status_code, 200)
+        self.bet.refresh_from_db()
+        self.assertEqual(self.bet.status, "WON")
+        self.assertEqual(self.bet.payout, Decimal("25.00"))
+        self.assertIsNotNone(self.bet.settled_at)
+
+    def test_settle_lost(self):
+        self.client.force_authenticate(user=self.tipster)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "LOST"})
+        self.assertEqual(response.status_code, 200)
+        self.bet.refresh_from_db()
+        self.assertEqual(self.bet.status, "LOST")
+        self.assertEqual(self.bet.payout, 0)
+
+    def test_settle_void(self):
+        self.client.force_authenticate(user=self.tipster)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "VOID"})
+        self.assertEqual(response.status_code, 200)
+        self.bet.refresh_from_db()
+        self.assertEqual(self.bet.status, "VOID")
+
+    def test_settle_forbidden_for_non_author(self):
+        self.client.force_authenticate(user=self.other_user)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "WON"})
+        self.assertEqual(response.status_code, 403)
+
+    def test_settle_already_settled(self):
+        self.bet.settle("WON")
+        self.client.force_authenticate(user=self.tipster)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "LOST"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_settle_invalid_outcome(self):
+        self.client.force_authenticate(user=self.tipster)
+        response = self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "INVALID"})
+        self.assertEqual(response.status_code, 400)
+
+    def test_settle_updates_gamification_stats(self):
+        self.client.force_authenticate(user=self.tipster)
+        self.client.post(f"/api/bets/{self.bet.id}/settle/", {"outcome": "WON"})
+
+        from gamification.models import UserGlobalStats
+        stats = UserGlobalStats.objects.get(user=self.tipster)
+        self.assertEqual(stats.total_bets, 1)
+        self.assertEqual(stats.wins, 1)
+        self.assertEqual(stats.current_streak, 1)

@@ -20,11 +20,11 @@ class BetTicketSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'author_id', 'author_name', 'author_avatar',
             'match_title', 'selection', 'odds', 'stake',
-            'ticket_image', 'status', 'payout',
+            'ticket_image', 'status', 'payout', 'settled_at',
             'created_at', 'is_premium', 'is_locked',
             'like_count', 'is_liked_by_me', 'comment_count'
         ]
-        read_only_fields = ['id', 'status', 'payout', 'is_premium', 'author', 'created_at']
+        read_only_fields = ['id', 'status', 'payout', 'is_premium', 'author', 'created_at', 'settled_at']
 
     def get_is_locked(self, obj):
         # Default value, logic handled in to_representation
@@ -90,3 +90,17 @@ class BetCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La mise doit être positive.")
         return value
 
+    def validate_odds(self, value):
+        if value < 1.01:
+            raise serializers.ValidationError("Les cotes doivent être d'au moins 1.01.")
+        if value > 1000:
+            raise serializers.ValidationError("Les cotes ne peuvent pas dépasser 1000.")
+        return value
+
+
+class BetSettleSerializer(serializers.Serializer):
+    outcome = serializers.ChoiceField(choices=[
+        ('WON', 'Won'),
+        ('LOST', 'Lost'),
+        ('VOID', 'Void'),
+    ])
