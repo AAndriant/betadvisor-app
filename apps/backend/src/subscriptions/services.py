@@ -56,6 +56,10 @@ def create_subscription_checkout(follower, tipster, success_url, cancel_url) -> 
         }],
         success_url=success_url,
         cancel_url=cancel_url,
+        metadata={
+            'follower_id': str(follower.id),
+            'tipster_id': str(tipster.id),
+        },
         subscription_data={
             'metadata': {
                 'follower_id': str(follower.id),

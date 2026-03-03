@@ -8,6 +8,7 @@ from subscriptions.services import TipsterNotOnboardedError
 
 User = get_user_model()
 
+
 class SubscribeViewTests(APITestCase):
     def setUp(self):
         self.follower = User.objects.create_user(
@@ -63,6 +64,7 @@ class SubscribeViewTests(APITestCase):
         Subscription.objects.create(
             follower=self.follower,
             tipster=self.tipster,
+            stripe_subscription_id='sub_existing_test_123',
             status='active'
         )
 
@@ -71,3 +73,16 @@ class SubscribeViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(response.data, {'error': 'Active subscription already exists'})
+
+    def test_subscribe_tipster_not_found(self):
+        """Test POST with non-existent tipster_id returns 404 Not Found."""
+        self.client.force_authenticate(user=self.follower)
+        data = {'tipster_id': 99999}
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_subscribe_unauthenticated(self):
+        """Test POST without authentication returns 401 Unauthorized."""
+        data = {'tipster_id': self.tipster.id}
+        response = self.client.post(self.url, data)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
