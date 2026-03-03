@@ -19,6 +19,7 @@ export default function TabLayout() {
         <Tabs.Screen name="notifications" />
         <Tabs.Screen name="profile" />
         <Tabs.Screen name="dashboard" />
+        <Tabs.Screen name="settings" />
       </Tabs>
     </View>
   );
