@@ -52,3 +52,6 @@ class BetTicket(models.Model):
     def __str__(self):
         return f"{self.author} - {self.match_title} ({self.status})"
 
+
+# Import Prediction so Django discovers it for migrations
+from bets.prediction_models import Prediction  # noqa: E402, F401
