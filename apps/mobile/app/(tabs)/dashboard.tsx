@@ -44,17 +44,17 @@ export default function DashboardScreen() {
         <Text className="text-white font-bold text-lg mb-2">Recent Subscribers</Text>
         <FlatList
           data={data?.recent_subscriptions}
-          keyExtractor={(item, index) => `${item.tipster}-${index}`}
+          keyExtractor={(item, index) => `${item.follower_username}-${index}`}
           renderItem={({ item }) => (
             <View className="bg-slate-900 rounded-xl p-4 mb-2 flex-row justify-between items-center border border-slate-800">
               <View>
-                <Text className="text-white font-semibold">Tipster ID: {item.tipster}</Text>
+                <Text className="text-white font-semibold">{item.follower_username}</Text>
                 <Text className="text-slate-400 text-sm">Status: {item.status}</Text>
               </View>
-              {item.current_period_end && (
-                 <Text className="text-slate-500 text-xs">
-                    Ends: {new Date(item.current_period_end).toLocaleDateString()}
-                 </Text>
+              {item.created_at && (
+                <Text className="text-slate-500 text-xs">
+                  Since: {new Date(item.created_at).toLocaleDateString()}
+                </Text>
               )}
             </View>
           )}
