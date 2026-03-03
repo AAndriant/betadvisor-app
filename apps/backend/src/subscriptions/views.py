@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from users.models import CustomUser
 from subscriptions.models import Subscription
-from subscriptions.serializers import SubscriptionSerializer
+from subscriptions.serializers import SubscriptionSerializer, TipsterDashboardSerializer
 from subscriptions.webhooks import process_stripe_webhook_payload, StripeWebhookSignatureError, StripeWebhookPayloadError
 from subscriptions.services import create_subscription_checkout, TipsterNotOnboardedError
 
@@ -67,6 +67,28 @@ class MySubscriptionsView(ListAPIView):
             follower=self.request.user,
             status='active'
         )
+
+class TipsterDashboardView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        active_subs = Subscription.objects.filter(tipster=user, status="active")
+        total_subs = Subscription.objects.filter(tipster=user)
+
+        # Price per month per subscriber (hardcode for now, refine later)
+        PRICE_PER_MONTH = 20.00  # EUR
+        PLATFORM_FEE = 0.20
+
+        data = {
+            "active_subscribers": active_subs.count(),
+            "total_subscribers_ever": total_subs.count(),
+            "monthly_revenue_estimate": round(active_subs.count() * PRICE_PER_MONTH * (1 - PLATFORM_FEE), 2),
+            "recent_subscriptions": TipsterDashboardSerializer(
+                active_subs.order_by("-created_at")[:10], many=True
+            ).data,
+        }
+        return Response(data)
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(View):

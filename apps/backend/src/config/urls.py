@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from api.views import BetViewSet, MyProfileView
 from users.views import UserViewSet
-from subscriptions.views import StripeWebhookView, MySubscriptionsView
+from subscriptions.views import StripeWebhookView, MySubscriptionsView, TipsterDashboardView
 
 # Router DRF standard
 router = DefaultRouter()
@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/health/', lambda r: JsonResponse({'status': 'ok'})),
     path('api/', include(router.urls)),
     path('api/me/', MyProfileView.as_view(), name='my-profile'),
+    path('api/me/dashboard/', TipsterDashboardView.as_view(), name='my-dashboard'),
 
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
