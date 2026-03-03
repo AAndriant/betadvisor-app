@@ -18,6 +18,7 @@ export default function TabLayout() {
         <Tabs.Screen name="post" options={{ presentation: 'modal' }} />
         <Tabs.Screen name="notifications" />
         <Tabs.Screen name="profile" />
+        <Tabs.Screen name="dashboard" />
       </Tabs>
     </View>
   );

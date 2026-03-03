@@ -300,3 +300,19 @@ export const getMySubscriptions = async () => {
   const { data } = await api.get('/api/me/subscriptions/');
   return data;
 };
+
+export interface DashboardData {
+  active_subscribers: number;
+  total_subscribers_ever: number;
+  monthly_revenue_estimate: number;
+  recent_subscriptions: Array<{
+    tipster: number;
+    status: string;
+    current_period_end: string | null;
+  }>;
+}
+
+export const getDashboard = async (): Promise<DashboardData> => {
+  const { data } = await api.get('/api/me/dashboard/');
+  return data;
+};
