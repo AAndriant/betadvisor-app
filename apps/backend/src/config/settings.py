@@ -263,3 +263,8 @@ SIMPLE_JWT = {
 # ─────────────────────────────────────────────────────────────
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@betadvisor.app")
+
+# ─────────────────────────────────────────────────────────────
+# SPORTS API — API-Sports.io + API-Tennis (auto-settlement)
+# ─────────────────────────────────────────────────────────────
+API_SPORTS_KEY = env("API_SPORTS_KEY", default="")

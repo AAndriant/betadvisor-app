@@ -7,7 +7,6 @@ class GeminiOCRService:
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
-            # Fallback to settings if not in env directly (though settings usually read env)
             api_key = getattr(settings, 'GEMINI_API_KEY', None)
         
         if not api_key:
@@ -18,30 +17,41 @@ class GeminiOCRService:
 
     def extract_data(self, image_path):
         """
-        Sends image to Gemini Flash and extracts bet details as JSON.
+        Sends image to Gemini Flash and extracts structured predictions as JSON.
+        Focused on prediction verification, NOT gambling data (odds/stake/payout).
         """
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found at {image_path}")
 
-        # Upload the file to Gemini
-        # Note: For efficiency in production, we might send bytes directly if supported,
-        # but the library often handles paths or PIL images.
-        # Using PIL image is safer for local/server processing.
         import PIL.Image
         img = PIL.Image.open(image_path)
 
         prompt = """
-        Extract bet details from this betting ticket image as JSON.
+        Extract sports predictions from this betting ticket image as JSON.
         Return ONLY valid JSON. Do not use markdown formatting.
         
+        Focus on PREDICTIONS, not betting amounts.
+        
         Required Keys:
-        - bookmaker (string)
-        - total_stake (number)
-        - potential_payout (number)
-        - bets (list of objects)
-            - match_name (string, e.g. "Team A vs Team B")
-            - selection (string, e.g. "Home Win", "Over 2.5")
-            - odds (number)
+        - predictions (list of objects):
+            - match_name (string, e.g. "PSG vs Real Madrid", "Djokovic vs Nadal")
+            - sport (string, one of: FOOTBALL, TENNIS, BASKETBALL, RUGBY, VOLLEYBALL, HANDBALL, HOCKEY, BASEBALL, FORMULA1, MMA)
+            - prediction_type (string, one of: MATCH_RESULT, OVER_UNDER, BTTS, GOALSCORER, DOUBLE_CHANCE, CORRECT_SCORE, WINNER, SET_SCORE, TOTAL_POINTS, HANDICAP, OTHER)
+            - prediction_value (string, e.g. "Home Win", "Over 2.5", "BTTS Yes", "Mbappé", "1X", "2-1", "Djokovic")
+            - match_date (string, date if visible on ticket, format YYYY-MM-DD, or null)
+        
+        Guidelines for prediction_type:
+        - MATCH_RESULT: 1, N, 2, Home Win, Draw, Away Win
+        - OVER_UNDER: Over 2.5, Under 3.5, etc.
+        - BTTS: Both Teams To Score Yes/No
+        - GOALSCORER: A specific player to score
+        - DOUBLE_CHANCE: 1X, X2, 12
+        - CORRECT_SCORE: Exact score like 2-1
+        - WINNER: Winner of a match (tennis, MMA, etc.)
+        - SET_SCORE: Score in sets (tennis)
+        - TOTAL_POINTS: Total points over/under (basketball)
+        - HANDICAP: Handicap betting
+        - OTHER: Anything else
         """
 
         try:
@@ -62,3 +72,4 @@ class GeminiOCRService:
         except Exception as e:
             print(f"Gemini OCR Error: {e}")
             raise e
+
