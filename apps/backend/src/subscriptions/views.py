@@ -68,6 +68,31 @@ class MySubscriptionsView(ListAPIView):
             status='active'
         )
 
+class CancelSubscriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        subscription_id = request.data.get('subscription_id')
+        if not subscription_id:
+            return Response({'error': 'subscription_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subscription = Subscription.objects.get(
+                id=subscription_id,
+                follower=request.user,
+                status='active'
+            )
+        except Subscription.DoesNotExist:
+            return Response({'error': 'Active subscription not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        from subscriptions.services import cancel_subscription
+        try:
+            cancel_subscription(subscription)
+            return Response({'status': 'canceled'})
+        except Exception as e:
+            logger.error(f"Error canceling subscription: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class TipsterDashboardView(APIView):
     permission_classes = [IsAuthenticated]
 

@@ -100,6 +100,19 @@ jobs:
           ALLOWED_HOSTS: "localhost"
         run: cd apps/backend/src && python manage.py showmigrations
 
+      - name: Run Django tests
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+          EMAIL_BACKEND: "django.core.mail.backends.locmem.EmailBackend"
+        run: cd apps/backend/src && python manage.py test --verbosity=2
+
   # ─────────────────────────────────────────────────────────────
   # JOB 2 — Mobile Expo (npm ci + tsc)
   # ─────────────────────────────────────────────────────────────

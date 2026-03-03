@@ -2,6 +2,8 @@ import uuid
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
+from django.utils import timezone
+
 
 class BetTicket(models.Model):
     class BetStatus(models.TextChoices):
@@ -26,6 +28,7 @@ class BetTicket(models.Model):
     # Résultat
     status = models.CharField(max_length=10, choices=BetStatus.choices, default=BetStatus.PENDING)
     payout = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
 
     # Meta
     created_at = models.DateTimeField(auto_now_add=True)
@@ -37,5 +40,15 @@ class BetTicket(models.Model):
             return self.stake * self.odds
         return 0
 
+    def settle(self, outcome):
+        """Resolve this bet with the given outcome (WON, LOST, VOID)."""
+        if outcome not in (self.BetStatus.WON, self.BetStatus.LOST, self.BetStatus.VOID):
+            raise ValueError(f"Invalid outcome: {outcome}")
+        self.status = outcome
+        self.payout = self.calculate_payout()
+        self.settled_at = timezone.now()
+        self.save()
+
     def __str__(self):
         return f"{self.author} - {self.match_title} ({self.status})"
+
