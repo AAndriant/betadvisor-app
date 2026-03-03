@@ -37,7 +37,9 @@ class TestWebhookCheckoutCompleted(APITestCase):
             }
         }
 
-    def test_creates_subscription_on_valid_event(self):
+    @patch("subscriptions.webhooks.send_new_subscriber_email")
+    @patch("subscriptions.webhooks.send_welcome_subscriber_email")
+    def test_creates_subscription_on_valid_event(self, mock_welcome, mock_new_sub):
         _handle_stripe_event(self.event_base)
 
         sub = Subscription.objects.get(stripe_subscription_id="sub_test_123")
@@ -46,27 +48,48 @@ class TestWebhookCheckoutCompleted(APITestCase):
         self.assertEqual(sub.stripe_customer_id, "cus_test_123")
         self.assertEqual(sub.status, "active")
 
-    def test_skips_non_subscription_mode(self):
+        mock_new_sub.assert_called_once_with(self.tipster, self.follower)
+        mock_welcome.assert_called_once_with(self.follower, self.tipster)
+
+    @patch("subscriptions.webhooks.send_new_subscriber_email")
+    @patch("subscriptions.webhooks.send_welcome_subscriber_email")
+    def test_skips_non_subscription_mode(self, mock_welcome, mock_new_sub):
         event = self.event_base.copy()
         event['data']['object']['mode'] = "payment"
 
         _handle_stripe_event(event)
         self.assertEqual(Subscription.objects.count(), 0)
+        mock_new_sub.assert_not_called()
+        mock_welcome.assert_not_called()
 
-    def test_missing_metadata_does_not_crash(self):
+    @patch("subscriptions.webhooks.send_new_subscriber_email")
+    @patch("subscriptions.webhooks.send_welcome_subscriber_email")
+    def test_missing_metadata_does_not_crash(self, mock_welcome, mock_new_sub):
         event = self.event_base.copy()
         event['data']['object']['metadata'] = {}
 
         _handle_stripe_event(event)
         self.assertEqual(Subscription.objects.count(), 0)
+        mock_new_sub.assert_not_called()
+        mock_welcome.assert_not_called()
 
-    def test_idempotency_skips_duplicate_event(self):
+    @patch("subscriptions.webhooks.send_new_subscriber_email")
+    @patch("subscriptions.webhooks.send_welcome_subscriber_email")
+    def test_idempotency_skips_duplicate_event(self, mock_welcome, mock_new_sub):
         _handle_stripe_event(self.event_base)
         self.assertEqual(Subscription.objects.count(), 1)
+        mock_new_sub.assert_called_once()
+        mock_welcome.assert_called_once()
+
+        mock_new_sub.reset_mock()
+        mock_welcome.reset_mock()
 
         _handle_stripe_event(self.event_base)
         self.assertEqual(Subscription.objects.count(), 1)
         self.assertEqual(StripeEvent.objects.count(), 1)
+
+        mock_new_sub.assert_not_called()
+        mock_welcome.assert_not_called()
 
 
 class TestWebhookInvoicePaid(APITestCase):
@@ -164,11 +187,13 @@ class TestWebhookSubscriptionDeleted(APITestCase):
             }
         }
 
-    def test_sets_status_canceled(self):
+    @patch("subscriptions.webhooks.send_subscription_canceled_email")
+    def test_sets_status_canceled(self, mock_cancel):
         _handle_stripe_event(self.event_base)
 
         self.subscription.refresh_from_db()
         self.assertEqual(self.subscription.status, "canceled")
+        mock_cancel.assert_called_once_with(self.subscription.tipster, self.subscription.follower)
 
 class TestWebhookAccountUpdated(APITestCase):
     def setUp(self):
