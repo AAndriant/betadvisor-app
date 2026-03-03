@@ -76,8 +76,9 @@ class SubscribeViewTests(APITestCase):
 
     def test_subscribe_tipster_not_found(self):
         """Test POST with non-existent tipster_id returns 404 Not Found."""
+        import uuid
         self.client.force_authenticate(user=self.follower)
-        data = {'tipster_id': 99999}
+        data = {'tipster_id': str(uuid.uuid4())}
         response = self.client.post(self.url, data)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
