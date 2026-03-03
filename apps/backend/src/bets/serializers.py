@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.apps import apps
 from .models import BetTicket
 
 class BetTicketSerializer(serializers.ModelSerializer):
@@ -12,16 +13,53 @@ class BetTicketSerializer(serializers.ModelSerializer):
     is_liked_by_me = serializers.SerializerMethodField()
     comment_count = serializers.SerializerMethodField()
 
+    is_locked = serializers.SerializerMethodField()
+
     class Meta:
         model = BetTicket
         fields = [
             'id', 'author_id', 'author_name', 'author_avatar',
             'match_title', 'selection', 'odds', 'stake',
             'ticket_image', 'status', 'payout',
-            'created_at', 'is_premium',
+            'created_at', 'is_premium', 'is_locked',
             'like_count', 'is_liked_by_me', 'comment_count'
         ]
         read_only_fields = ['id', 'status', 'payout', 'is_premium', 'author', 'created_at']
+
+    def get_is_locked(self, obj):
+        # Default value, logic handled in to_representation
+        return False
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+
+        # Default to locked if premium and not authenticated
+        is_locked = instance.is_premium
+
+        if instance.is_premium and request and request.user.is_authenticated:
+            # Author always sees their own bet
+            if request.user == instance.author:
+                is_locked = False
+            else:
+                Subscription = apps.get_model('subscriptions', 'Subscription')
+                is_subscribed = Subscription.objects.filter(
+                    follower=request.user,
+                    tipster=instance.author,
+                    status="active"
+                ).exists()
+                if is_subscribed:
+                    is_locked = False
+
+        if is_locked:
+            data["odds"] = None
+            data["stake"] = None
+            data["payout"] = None
+            data["is_locked"] = True
+        else:
+            data["is_locked"] = False
+
+        return data
 
     def get_author_avatar(self, obj):
         # Fallback UI-Avatars en attendant le module User Profile complet
@@ -45,7 +83,7 @@ class BetTicketSerializer(serializers.ModelSerializer):
 class BetCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = BetTicket
-        fields = ['match_title', 'selection', 'odds', 'stake', 'ticket_image']
+        fields = ['match_title', 'selection', 'odds', 'stake', 'ticket_image', 'is_premium']
 
     def validate_stake(self, value):
         if value <= 0:
