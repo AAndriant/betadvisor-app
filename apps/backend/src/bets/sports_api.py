@@ -37,9 +37,19 @@ def _get_api_key():
     return key
 
 
-def _api_request(host, endpoint, params=None):
+def _get_tennis_key():
+    """Get API-Tennis key. Falls back to API_SPORTS_KEY if not set separately."""
+    key = getattr(settings, 'API_TENNIS_KEY', '')
+    if not key:
+        key = getattr(settings, 'API_SPORTS_KEY', '')
+    if not key:
+        raise SportsAPIError("API_TENNIS_KEY (or API_SPORTS_KEY fallback) not configured")
+    return key
+
+
+def _api_request(host, endpoint, params=None, use_tennis_key=False):
     """Make a GET request to an api-sports.io API."""
-    api_key = _get_api_key()
+    api_key = _get_tennis_key() if use_tennis_key else _get_api_key()
     url = f"{host}/{endpoint}"
     headers = {
         'x-apisports-key': api_key,
@@ -104,12 +114,12 @@ def search_football_fixture(home_team, away_team, date_str):
 # ─── Tennis ─────────────────────────────────────────────
 def get_tennis_fixtures_by_date(date_str):
     """Get all tennis fixtures for a date."""
-    return _api_request(API_TENNIS_HOST, 'games', {'date': date_str})
+    return _api_request(API_TENNIS_HOST, 'games', {'date': date_str}, use_tennis_key=True)
 
 
 def get_tennis_fixture(fixture_id):
     """Get a single tennis fixture by ID."""
-    results = _api_request(API_TENNIS_HOST, 'games', {'id': fixture_id})
+    results = _api_request(API_TENNIS_HOST, 'games', {'id': fixture_id}, use_tennis_key=True)
     return results[0] if results else None
 
 
