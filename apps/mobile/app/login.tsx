@@ -19,10 +19,6 @@ export default function Login() {
     setIsSubmitting(true);
     try {
       await login(username, password);
-      // Navigation is handled by the auth state listener usually, or explicitly here
-      // The prompt says "Redirige vers app/(tabs)/index.tsx une fois connecté"
-      // We will handle this in the component or via a side effect in the layout.
-      // But explicit redirect is often safer for immediate feedback.
       router.replace('/(tabs)/feed');
     } catch (error) {
       Alert.alert('Erreur', 'Échec de la connexion. Vérifiez vos identifiants.');
@@ -32,34 +28,37 @@ export default function Login() {
   };
 
   return (
-    <View className="flex-1 justify-center items-center bg-gray-100 p-4">
-      <View className="w-full max-w-sm bg-white p-6 rounded-xl shadow-md">
-        <Text className="text-2xl font-bold mb-6 text-center text-gray-800">Connexion</Text>
+    <View className="flex-1 justify-center items-center bg-slate-950 p-4">
+      <View className="w-full max-w-sm bg-slate-900 p-6 rounded-xl border border-slate-800">
+        <Text className="text-3xl font-bold mb-2 text-center text-white">BetAdvisor</Text>
+        <Text className="text-sm text-slate-400 text-center mb-8">Connecte-toi pour continuer</Text>
 
         <View className="mb-4">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Nom d'utilisateur</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Nom d'utilisateur</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={username}
             onChangeText={setUsername}
             placeholder="Entrez votre nom d'utilisateur"
+            placeholderTextColor="#64748b"
             autoCapitalize="none"
           />
         </View>
 
         <View className="mb-6">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Mot de passe</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Mot de passe</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={password}
             onChangeText={setPassword}
             placeholder="Entrez votre mot de passe"
+            placeholderTextColor="#64748b"
             secureTextEntry
           />
         </View>
 
         <TouchableOpacity
-          className={`w-full bg-blue-600 py-3 rounded-md items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
+          className={`w-full bg-emerald-500 py-3 rounded-xl items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
           onPress={handleLogin}
           disabled={isSubmitting}
         >
@@ -71,7 +70,7 @@ export default function Login() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/signup')}>
-          <Text className="text-blue-600 text-center font-medium">Vous n'avez pas de compte ? S'inscrire</Text>
+          <Text className="text-emerald-500 text-center font-medium">Vous n'avez pas de compte ? S'inscrire</Text>
         </TouchableOpacity>
       </View>
     </View>

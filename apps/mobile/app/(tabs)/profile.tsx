@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
-import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
-import { LockedContentOverlay } from '../../src/components/LockedContentOverlay';
 import { useUserStats } from '../../src/hooks/useUserStats';
-
-// Mock temporaire pour les tickets (le backend endpoint tickets viendra après)
-const MOCK_TICKETS = [
-  { id: '1', match: 'PSG vs OM', odds: 1.85, stake: 100, status: 'WIN', date: '2h ago', isPremium: false },
-  { id: '2', match: 'Lakers vs Bulls', odds: 2.10, stake: 100, status: 'PENDING', date: '5h ago', isPremium: true },
-];
+import { fetchUserBets } from '../../src/services/users';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -19,7 +14,20 @@ export default function ProfileScreen() {
 
   // 1. Appel API via le Hook
   const { data: user, isLoading, error, refetch } = useUserStats();
-  const isSubscriber = false;
+
+  // 2. Fetch real bets for this user
+  const { data: userBets, isLoading: isLoadingBets, refetch: refetchBets } = useQuery({
+    queryKey: ['myBets', user?.id],
+    queryFn: () => fetchUserBets(user!.id),
+    enabled: !!user?.id,
+  });
+
+  const handleNavigateToComments = (betId: string) => {
+    router.push({
+      pathname: '/comments/[id]',
+      params: { id: betId }
+    });
+  };
 
   // 2. Gestion Loading
   if (isLoading) {
@@ -48,7 +56,6 @@ export default function ProfileScreen() {
   }
 
   // 4. Adaptateur de données (API -> UI)
-  // On sécurise les données au cas où l'API renvoie des nulls
   const formattedUser = {
     name: user.username || "Utilisateur",
     handle: user.username,
@@ -63,68 +70,89 @@ export default function ProfileScreen() {
     }
   };
 
+  // Parse paginated response
+  const betsList = Array.isArray(userBets) ? userBets : (userBets?.results || []);
+
   return (
     <SafeAreaView className="flex-1 bg-slate-950 pb-24">
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor="#10b981" />
+      <FlatList
+        data={activeTab === 'Bets' ? betsList : []}
+        keyExtractor={(item: any) => item.id.toString()}
+        ListHeaderComponent={
+          <>
+            {/* Header connecté à l'API */}
+            <ProfileHeader user={formattedUser} isOwnProfile={true} />
+
+            {/* Bouton Devenir Tipster (uniquement pour les non-tipsters) */}
+            {!user.is_tipster && (
+              <View className="px-4 mt-4">
+                <TouchableOpacity
+                  onPress={() => router.push('/tipster-onboarding')}
+                  className="bg-emerald-500 py-3 rounded-xl items-center"
+                >
+                  <Text className="text-white font-bold text-lg">Devenir Tipster</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Tabs Statiques */}
+            <View className="flex-row border-b border-slate-800 px-4 mt-2">
+              {['Bets', 'Stats', 'Media'].map((tab) => (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  className={`mr-6 pb-3 ${activeTab === tab ? 'border-b-2 border-emerald-500' : ''}`}
+                >
+                  <Text className={`font-medium ${activeTab === tab ? 'text-white' : 'text-slate-500'}`}>
+                    {tab}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
         }
-      >
-
-        {/* Header connecté à l'API */}
-        <ProfileHeader user={formattedUser} isOwnProfile={true} />
-
-        {/* Bouton Devenir Tipster (uniquement pour les non-tipsters) */}
-        {!user.is_tipster && (
-          <View className="px-4 mt-4">
-            <TouchableOpacity
-              onPress={() => router.push('/tipster-onboarding')}
-              className="bg-emerald-500 py-3 rounded-xl items-center"
-            >
-              <Text className="text-white font-bold text-lg">Devenir Tipster</Text>
-            </TouchableOpacity>
+        renderItem={({ item }) => (
+          <View className="px-4 py-2">
+            <TicketCard
+              title={item.match_title}
+              odds={parseFloat(item.odds)}
+              status={item.status}
+              roi={item.roi || null}
+              id={item.id.toString()}
+              likeCount={item.like_count || 0}
+              commentCount={item.comment_count || 0}
+              isLiked={item.is_liked_by_me || false}
+              onPressComment={() => handleNavigateToComments(item.id.toString())}
+            />
           </View>
         )}
-
-        {/* Tabs Statiques */}
-        <View className="flex-row border-b border-slate-800 px-4 mt-2">
-          {['Bets', 'Stats', 'Media'].map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              onPress={() => setActiveTab(tab)}
-              className={`mr-6 pb-3 ${activeTab === tab ? 'border-b-2 border-emerald-500' : ''}`}
-            >
-              <Text className={`font-medium ${activeTab === tab ? 'text-white' : 'text-slate-500'}`}>
-                {tab}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Liste des Tickets (Reste Mockée pour l'instant) */}
-        <View className="p-4 gap-4">
-          {MOCK_TICKETS.map((ticket) => (
-            <View key={ticket.id} className="relative">
-              <TicketCard
-                id={ticket.id}
-                title={ticket.match}
-                odds={ticket.odds}
-                status={ticket.status as any}
-                roi={null}
-                likeCount={0}
-                commentCount={0}
-                isLiked={false}
-                onPressComment={() => { }}
-              />
-              {ticket.isPremium && !isSubscriber && (
-                <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />
-              )}
+        ListEmptyComponent={
+          activeTab === 'Bets' ? (
+            isLoadingBets ? (
+              <View className="py-12 items-center">
+                <ActivityIndicator size="small" color="#10b981" />
+              </View>
+            ) : (
+              <View className="py-12 items-center">
+                <Text className="text-slate-500 text-center text-base">Aucun pari publié</Text>
+                <Text className="text-slate-600 text-center text-sm mt-1">Tes paris apparaîtront ici une fois publiés.</Text>
+              </View>
+            )
+          ) : (
+            <View className="py-12 items-center">
+              <Text className="text-slate-500 text-center text-base">Bientôt disponible</Text>
             </View>
-          ))}
-        </View>
-
-      </ScrollView>
+          )
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={() => { refetch(); refetchBets(); }}
+            tintColor="#10b981"
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
     </SafeAreaView>
   );
 }

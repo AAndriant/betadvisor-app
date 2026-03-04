@@ -8,6 +8,7 @@ import { TicketCard } from '../../src/components/ui/TicketCard';
 import { fetchUserProfile, fetchUserBets } from '../../src/services/users';
 import { toggleFollow } from '../../src/services/social';
 import { fetchMyProfile, getMySubscriptions } from '../../src/services/api';
+import { showSuccessToast } from '../../src/services/toast';
 
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -70,7 +71,14 @@ export default function UserProfileScreen() {
                 queryClient.setQueryData(['user', id], context.previousProfile);
             }
         },
-        onSettled: () => {
+        onSettled: (data) => {
+            // Show toast feedback
+            const profile: any = queryClient.getQueryData(['user', id]);
+            if (profile?.is_followed_by_me) {
+                showSuccessToast(`Tu suis ${profile.username}`);
+            } else {
+                showSuccessToast('Abonné retiré');
+            }
             // Refetch to ensure consistency
             queryClient.invalidateQueries({ queryKey: ['user', id] });
         },
