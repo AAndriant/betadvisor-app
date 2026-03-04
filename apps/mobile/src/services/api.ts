@@ -375,3 +375,29 @@ export const updateSubscriptionPrice = async (price: string) => {
   });
   return data;
 };
+
+// ────────────────────────────────────────────────────────────
+// Sprint 11: Password Reset Confirm
+// ────────────────────────────────────────────────────────────
+export const confirmPasswordReset = async (uid: string, token: string, newPassword: string) => {
+  const { data } = await api.post('/api/auth/password-reset/confirm/', {
+    uid,
+    token,
+    new_password: newPassword,
+  });
+  return data;
+};
+
+// ────────────────────────────────────────────────────────────
+// Sprint 11: Report content/user
+// ────────────────────────────────────────────────────────────
+export const submitReport = async (params: {
+  reported_user?: number;
+  reported_bet?: string;
+  reported_comment?: number;
+  reason: 'SPAM' | 'INAPPROPRIATE' | 'FRAUD' | 'HARASSMENT' | 'OTHER';
+  details?: string;
+}) => {
+  const { data } = await api.post('/api/social/reports/', params);
+  return data;
+};

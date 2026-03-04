@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Share, Alert } from 'react-native';
 import { cn } from '../../lib/utils';
-import { CheckCircle2, XCircle, Clock, TrendingUp, Heart, MessageCircle } from 'lucide-react-native';
+import { CheckCircle2, XCircle, Clock, TrendingUp, Heart, MessageCircle, Share2, Flag } from 'lucide-react-native';
 import { toggleLike } from '../../services/social';
 import { LockedContentOverlay } from '../LockedContentOverlay';
+import { submitReport } from '../../services/api';
+import { showSuccessToast, showErrorToast } from '../../services/toast';
 
 interface TicketCardProps {
   title: string;
@@ -50,6 +52,15 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
     WIN: { color: 'text-emerald-500', hex: '#10b981', icon: CheckCircle2, border: 'border-emerald-500/20', bg: 'bg-emerald-500/10' },
     LOSS: { color: 'text-red-500', hex: '#ef4444', icon: XCircle, border: 'border-red-500/20', bg: 'bg-red-500/10' },
     PENDING: { color: 'text-amber-500', hex: '#f59e0b', icon: Clock, border: 'border-amber-500/20', bg: 'bg-amber-500/10' },
+  };
+
+  const handleReport = async (reason: 'SPAM' | 'INAPPROPRIATE' | 'FRAUD' | 'HARASSMENT' | 'OTHER') => {
+    try {
+      await submitReport({ reported_bet: id, reason });
+      showSuccessToast('Signalement envoyé. Merci !');
+    } catch {
+      showErrorToast('Erreur lors du signalement.');
+    }
   };
 
   const config = statusConfig[status] || statusConfig.PENDING;
@@ -134,7 +145,7 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
       <View className="flex-row items-center border-t border-slate-800 pt-3 mt-3">
         <TouchableOpacity
           onPress={handleLike}
-          className="flex-row items-center mr-6"
+          className="flex-row items-center mr-5"
           activeOpacity={0.7}
         >
           <Heart
@@ -149,7 +160,7 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
 
         <TouchableOpacity
           onPress={onPressComment}
-          className="flex-row items-center"
+          className="flex-row items-center mr-5"
           activeOpacity={0.7}
         >
           <MessageCircle size={20} color="#64748b" />
@@ -157,6 +168,43 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
             {commentCount}
           </Text>
         </TouchableOpacity>
+
+        {/* P2-16: Share */}
+        <TouchableOpacity
+          onPress={async () => {
+            try {
+              await Share.share({
+                message: `${title} · Cote ${odds?.toFixed(2)} — Découvre ce pari sur BetAdvisor !`,
+              });
+            } catch { }
+          }}
+          className="flex-row items-center mr-5"
+          activeOpacity={0.7}
+        >
+          <Share2 size={18} color="#64748b" />
+        </TouchableOpacity>
+
+        {/* P2-18: Report */}
+        {!isOwner && (
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                'Signaler ce pari',
+                'Pourquoi signalez-vous ce contenu ?',
+                [
+                  { text: 'Spam', onPress: () => handleReport('SPAM') },
+                  { text: 'Inapproprié', onPress: () => handleReport('INAPPROPRIATE') },
+                  { text: 'Fraude', onPress: () => handleReport('FRAUD') },
+                  { text: 'Annuler', style: 'cancel' },
+                ]
+              );
+            }}
+            className="flex-row items-center"
+            activeOpacity={0.7}
+          >
+            <Flag size={16} color="#64748b" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* S10-06: Premium content gating overlay */}

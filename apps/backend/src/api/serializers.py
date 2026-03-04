@@ -35,6 +35,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     is_followed_by_me = serializers.SerializerMethodField()
     subscription_price = serializers.SerializerMethodField()
     sport_stats = serializers.SerializerMethodField()
+    badges = serializers.SerializerMethodField()
+    halo_color = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -42,6 +44,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'bio', 'stats',
             'avatar_url', 'follower_count', 'is_followed_by_me',
             'is_tipster', 'subscription_price', 'sport_stats',
+            'badges', 'halo_color',
         ]
 
     def get_avatar_url(self, obj):
@@ -109,6 +112,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
             } for s in stats]
         except Exception:
             return []
+
+    def get_badges(self, obj):
+        try:
+            from gamification.models import UserBadge
+            badges = UserBadge.objects.filter(user=obj).order_by('-awarded_at')
+            return [{
+                'badge_name': b.badge_name,
+                'description': b.description,
+                'awarded_at': b.awarded_at.isoformat() if b.awarded_at else None,
+            } for b in badges]
+        except Exception:
+            return []
+
+    def get_halo_color(self, obj):
+        try:
+            return obj.global_stats.profile_halo_color
+        except Exception:
+            return 'none'
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

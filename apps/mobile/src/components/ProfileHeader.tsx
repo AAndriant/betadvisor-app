@@ -16,6 +16,7 @@ interface ProfileHeaderProps {
       winRate: number;
       followers: number;
     };
+    haloColor?: string;
   };
   isFollowed?: boolean;
   onToggleFollow?: () => void;
@@ -35,6 +36,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, 
           fallback={user.name[0]}
           size="lg"
           premium={user.role === 'TIPSTER'}
+          haloColor={user.haloColor}
         />
 
         <View className="flex-row gap-4">

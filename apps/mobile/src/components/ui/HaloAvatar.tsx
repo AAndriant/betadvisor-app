@@ -19,6 +19,7 @@ interface HaloAvatarProps {
   fallback?: string;
   variant?: HaloVariant;
   premium?: boolean;
+  haloColor?: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -30,11 +31,14 @@ export function HaloAvatar({
   fallback,
   variant = 'gray',
   premium,
+  haloColor,
   size = 'md',
   className,
 }: HaloAvatarProps) {
   const finalUri = uri || imageUri;
-  const finalVariant = premium ? 'gold' : variant;
+  // P2-15: Dynamic halo from backend reputation
+  const HALO_MAP: Record<string, HaloVariant> = { none: 'gray', bronze: 'bronze', silver: 'silver', gold: 'gold', diamond: 'diamond' };
+  const finalVariant = haloColor && HALO_MAP[haloColor] ? HALO_MAP[haloColor] : (premium ? 'gold' : variant);
 
   const opacity = useSharedValue(1);
 
@@ -69,9 +73,9 @@ export function HaloAvatar({
   };
 
   const textSizes = {
-      sm: 'text-xs',
-      md: 'text-base',
-      lg: 'text-xl',
+    sm: 'text-xs',
+    md: 'text-base',
+    lg: 'text-xl',
   };
 
   const haloColors: Record<HaloVariant, string> = {
@@ -95,29 +99,29 @@ export function HaloAvatar({
 
       {/* Gap and Content */}
       <View className="m-[3px] rounded-full bg-slate-950 p-[2px]">
-         <View
-            className={cn(
-              'overflow-hidden rounded-full bg-slate-800 items-center justify-center',
-              sizeClasses[size]
-            )}
-          >
+        <View
+          className={cn(
+            'overflow-hidden rounded-full bg-slate-800 items-center justify-center',
+            sizeClasses[size]
+          )}
+        >
           {finalUri ? (
-              <Image
+            <Image
               source={{ uri: finalUri }}
-                accessibilityLabel={alt}
-                className="w-full h-full"
-                resizeMode="cover"
-              />
-            ) : (
-              <View className="items-center justify-center w-full h-full bg-slate-800">
-                {fallback ? (
-                    <Text className={cn("text-white font-bold", textSizes[size])}>{fallback}</Text>
-                ) : (
-                    <User size={iconSizes[size]} color="#94a3b8" />
-                )}
-              </View>
-            )}
-          </View>
+              accessibilityLabel={alt}
+              className="w-full h-full"
+              resizeMode="cover"
+            />
+          ) : (
+            <View className="items-center justify-center w-full h-full bg-slate-800">
+              {fallback ? (
+                <Text className={cn("text-white font-bold", textSizes[size])}>{fallback}</Text>
+              ) : (
+                <User size={iconSizes[size]} color="#94a3b8" />
+              )}
+            </View>
+          )}
+        </View>
       </View>
     </View>
   );

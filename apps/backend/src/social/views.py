@@ -2,10 +2,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.mixins import CreateModelMixin
 from django.shortcuts import get_object_or_404
 
-from .models import Like, Comment, Follow
-from .serializers import CommentSerializer, LikeSerializer
+from .models import Like, Comment, Follow, Report
+from .serializers import CommentSerializer, LikeSerializer, ReportSerializer
 from bets.models import BetTicket
 
 class LikeViewSet(viewsets.GenericViewSet):
@@ -109,3 +110,16 @@ class FollowViewSet(viewsets.GenericViewSet):
         else:
             # New follow was created
             return Response({'followed': True}, status=status.HTTP_201_CREATED)
+
+
+class ReportViewSet(CreateModelMixin, viewsets.GenericViewSet):
+    """
+    POST /api/social/reports/
+    Submit a report for moderation. Only create action is allowed.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = ReportSerializer
+    queryset = Report.objects.all()
+
+    def perform_create(self, serializer):
+        serializer.save(reporter=self.request.user)

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Comment, Like
+from .models import Comment, Like, Report
 from api.serializers import sanitize_text
 
 
@@ -36,3 +36,21 @@ class LikeSerializer(serializers.ModelSerializer):
         model = Like
         fields = ['id', 'user', 'bet', 'created_at']
         read_only_fields = ['id', 'created_at', 'user']
+
+
+class ReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ['id', 'reported_user', 'reported_bet', 'reported_comment', 'reason', 'details', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate(self, attrs):
+        targets = [attrs.get('reported_user'), attrs.get('reported_bet'), attrs.get('reported_comment')]
+        if not any(targets):
+            raise serializers.ValidationError("At least one of reported_user, reported_bet, or reported_comment is required.")
+        return attrs
+
+    def validate_details(self, value):
+        if value:
+            return sanitize_text(value)
+        return value

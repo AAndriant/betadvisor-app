@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, Text } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, FlatList, ActivityIndicator, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { TicketCard } from '../../src/components/ui/TicketCard';
@@ -22,6 +22,14 @@ export default function FeedScreen() {
   const [allBets, setAllBets] = useState<any[]>([]);
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'ALL' | 'PENDING' | 'WON' | 'LOST'>('ALL');
+
+  const FILTERS = [
+    { key: 'ALL' as const, label: 'Tous' },
+    { key: 'PENDING' as const, label: '⏳ En cours' },
+    { key: 'WON' as const, label: '✅ Gagnés' },
+    { key: 'LOST' as const, label: '❌ Perdus' },
+  ];
 
   // Fetch current user to check ownership
   const { data: currentUser } = useQuery({
@@ -97,14 +105,38 @@ export default function FeedScreen() {
 
   const userId = currentUser?.id;
 
+  // P2-17: Filter bets
+  const filteredBets = useMemo(() => {
+    if (activeFilter === 'ALL') return allBets;
+    const statusMap: Record<string, string> = { 'PENDING': 'PENDING', 'WON': 'WIN', 'LOST': 'LOSS' };
+    return allBets.filter(b => b.status === statusMap[activeFilter]);
+  }, [allBets, activeFilter]);
+
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
-      <View className="px-4 py-2 border-b border-slate-800">
-        <Text className="text-white font-bold text-xl">Flux Récent</Text>
+      <View className="px-4 py-3 border-b border-slate-800">
+        <Text className="text-white font-bold text-xl mb-2">Flux Récent</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
+          {FILTERS.map(f => (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setActiveFilter(f.key)}
+              className={`px-4 py-1.5 rounded-full mr-2 ${activeFilter === f.key
+                  ? 'bg-emerald-500'
+                  : 'bg-slate-800 border border-slate-700'
+                }`}
+            >
+              <Text className={`text-sm font-semibold ${activeFilter === f.key ? 'text-white' : 'text-slate-400'
+                }`}>
+                {f.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
 
       <FlatList
-        data={allBets}
+        data={filteredBets}
         keyExtractor={(item: any) => item.id.toString()}
         renderItem={({ item }) => (
           <View className="px-4 py-2">

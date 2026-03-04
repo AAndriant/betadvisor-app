@@ -18,6 +18,22 @@ interface SportStat {
   roi: number;
 }
 
+interface Badge {
+  badge_name: string;
+  description: string;
+  awarded_at: string;
+}
+
+const BADGE_EMOJIS: Record<string, string> = {
+  'First Win': '🏆',
+  'Hot Streak 3': '🔥',
+  'Hot Streak 5': '💎',
+  'Hot Streak 10': '👑',
+  'Century Club': '💯',
+  'Sharp Shooter': '🎯',
+  'ROI King': '📈',
+};
+
 const SPORT_EMOJIS: Record<string, string> = {
   Football: '⚽',
   Basketball: '🏀',
@@ -102,7 +118,8 @@ export default function ProfileScreen() {
       roi: user.stats?.roi || 0,
       winRate: user.stats?.win_rate || 0,
       followers: user.follower_count || 0
-    }
+    },
+    haloColor: user.halo_color || 'none',
   };
 
   // Parse paginated response
@@ -157,6 +174,28 @@ export default function ProfileScreen() {
                       </Text>
                       <Text className="text-slate-400 text-xs mt-1">
                         {stat.winrate}% WR · {stat.roi > 0 ? '+' : ''}{stat.roi}% ROI
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* P2-14: Badges */}
+            {user.badges && user.badges.length > 0 && (
+              <View className="px-4 mt-4">
+                <Text className="text-white font-bold text-lg mb-3">Badges</Text>
+                <View className="flex-row flex-wrap">
+                  {user.badges.map((badge: Badge) => (
+                    <View
+                      key={badge.badge_name}
+                      className="bg-slate-900 rounded-xl px-3 py-2 mr-2 mb-2 border border-amber-500/30 flex-row items-center"
+                    >
+                      <Text className="text-lg mr-1.5">
+                        {BADGE_EMOJIS[badge.badge_name] || '🏅'}
+                      </Text>
+                      <Text className="text-amber-400 font-semibold text-xs">
+                        {badge.badge_name}
                       </Text>
                     </View>
                   ))}
