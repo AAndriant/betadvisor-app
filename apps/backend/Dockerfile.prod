@@ -47,8 +47,8 @@ RUN SECRET_KEY=build-collect-static \
     STRIPE_SECRET_KEY=sk_build_dummy \
     DATABASE_URL=sqlite:///tmp/build.db \
     DEBUG=False \
-    ALLOWED_HOSTS=* \
-    python src/manage.py collectstatic --noinput 2>/dev/null || true
+    ALLOWED_HOSTS=build.local \
+    python src/manage.py collectstatic --noinput
 
 # Create non-root user
 RUN addgroup --system app && adduser --system --ingroup app app

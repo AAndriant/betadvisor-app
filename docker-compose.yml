@@ -61,6 +61,29 @@ services:
     security_opt:
       - seccomp:unconfined
 
+  # ── Settlement Cron ──────────────────────────────────────────
+  # Runs settle_predictions every 10 minutes
+  # Lightweight alternative to Celery Beat for a single periodic task
+  settlement-cron:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: betadvisor_cron
+    restart: unless-stopped
+    command: >
+      sh -c "while true; do
+        echo '[CRON] Running settle_predictions at $$(date)';
+        cd src && python manage.py settle_predictions;
+        sleep 600;
+      done"
+    env_file:
+      - ./apps/backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - seccomp:unconfined
+
 volumes:
   postgres_data:
     driver: local

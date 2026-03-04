@@ -1,19 +1,21 @@
 import os
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from django.conf import settings
+
 
 class GeminiOCRService:
     def __init__(self):
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             api_key = getattr(settings, 'GEMINI_API_KEY', None)
-        
+
         if not api_key:
             raise ValueError("GEMINI_API_KEY not found in environment variables.")
-            
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash')
+
+        self.client = genai.Client(api_key=api_key)
+        self.model_name = 'gemini-2.0-flash'
 
     def extract_data(self, image_path):
         """
@@ -23,8 +25,14 @@ class GeminiOCRService:
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found at {image_path}")
 
-        import PIL.Image
-        img = PIL.Image.open(image_path)
+        # Read image as bytes for the new SDK
+        with open(image_path, 'rb') as f:
+            image_bytes = f.read()
+
+        # Detect mime type
+        ext = os.path.splitext(image_path)[1].lower()
+        mime_map = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp'}
+        mime_type = mime_map.get(ext, 'image/jpeg')
 
         prompt = """
         Extract sports predictions from this betting ticket image as JSON.
@@ -55,9 +63,15 @@ class GeminiOCRService:
         """
 
         try:
-            response = self.model.generate_content([prompt, img])
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=[
+                    prompt,
+                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                ],
+            )
             response_text = response.text
-            
+
             # Clean up markdown if present
             cleaned_text = response_text.strip()
             if cleaned_text.startswith("```json"):
@@ -66,10 +80,9 @@ class GeminiOCRService:
                 cleaned_text = cleaned_text[3:]
             if cleaned_text.endswith("```"):
                 cleaned_text = cleaned_text[:-3]
-            
+
             return json.loads(cleaned_text.strip())
-            
+
         except Exception as e:
             print(f"Gemini OCR Error: {e}")
             raise e
-

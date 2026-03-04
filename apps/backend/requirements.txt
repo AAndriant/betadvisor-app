@@ -6,7 +6,7 @@ django-environ>=0.11,<1.0
 gunicorn>=21.2,<22.0
 Pillow>=10.0.0
 requests>=2.31.0
-google-generativeai>=0.7.2
+google-genai>=1.0.0
 stripe
 django-filter>=24.0
 django-cors-headers>=4.3.0
