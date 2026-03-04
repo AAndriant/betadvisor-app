@@ -34,13 +34,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
     follower_count = serializers.SerializerMethodField()
     is_followed_by_me = serializers.SerializerMethodField()
     subscription_price = serializers.SerializerMethodField()
+    sport_stats = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'bio', 'stats',
             'avatar_url', 'follower_count', 'is_followed_by_me',
-            'is_tipster', 'subscription_price',
+            'is_tipster', 'subscription_price', 'sport_stats',
         ]
 
     def get_avatar_url(self, obj):
@@ -94,6 +95,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
             from social.models import Follow
             return Follow.objects.filter(follower=request.user, followed=obj).exists()
         return False
+
+    def get_sport_stats(self, obj):
+        try:
+            from gamification.models import UserSportStats
+            stats = UserSportStats.objects.filter(user=obj).select_related('sport')
+            return [{
+                'sport': s.sport.name,
+                'total_bets': s.total_bets,
+                'wins': s.wins,
+                'winrate': round(s.winrate, 1),
+                'roi': round(float(s.roi), 1),
+            } for s in stats]
+        except Exception:
+            return []
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

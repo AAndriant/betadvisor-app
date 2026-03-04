@@ -45,7 +45,7 @@ export default function Login() {
           />
         </View>
 
-        <View className="mb-6">
+        <View className="mb-4">
           <Text className="text-slate-300 text-sm font-bold mb-2">Mot de passe</Text>
           <TextInput
             className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
@@ -56,6 +56,10 @@ export default function Login() {
             secureTextEntry
           />
         </View>
+
+        <TouchableOpacity onPress={() => router.push('/forgot-password')} className="mb-4">
+          <Text className="text-emerald-500 text-sm text-right">Mot de passe oublié ?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           className={`w-full bg-emerald-500 py-3 rounded-xl items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}

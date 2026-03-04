@@ -62,19 +62,19 @@ export default function SearchScreen() {
 
     // Render segmented control
     const renderSegmentedControl = () => (
-        <View className="flex-row bg-gray-900/50 border border-gray-800 rounded-xl p-1 mx-4 mb-4">
+        <View className="flex-row bg-slate-900 border border-slate-800 rounded-xl p-1 mx-4 mb-4">
             <TouchableOpacity
                 onPress={() => setActiveTab('leaderboard')}
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-lg ${activeTab === 'leaderboard' ? 'bg-yellow-500' : 'bg-transparent'
+                className={`flex-1 flex-row items-center justify-center py-3 rounded-lg ${activeTab === 'leaderboard' ? 'bg-emerald-500' : 'bg-transparent'
                     }`}
                 activeOpacity={0.7}
             >
                 <Trophy
                     size={18}
-                    color={activeTab === 'leaderboard' ? '#000' : '#9CA3AF'}
+                    color={activeTab === 'leaderboard' ? '#fff' : '#64748b'}
                 />
                 <Text
-                    className={`ml-2 font-semibold ${activeTab === 'leaderboard' ? 'text-black' : 'text-gray-400'
+                    className={`ml-2 font-semibold ${activeTab === 'leaderboard' ? 'text-white' : 'text-slate-400'
                         }`}
                 >
                     Top Tipsters
@@ -83,16 +83,16 @@ export default function SearchScreen() {
 
             <TouchableOpacity
                 onPress={() => setActiveTab('search')}
-                className={`flex-1 flex-row items-center justify-center py-3 rounded-lg ${activeTab === 'search' ? 'bg-yellow-500' : 'bg-transparent'
+                className={`flex-1 flex-row items-center justify-center py-3 rounded-lg ${activeTab === 'search' ? 'bg-emerald-500' : 'bg-transparent'
                     }`}
                 activeOpacity={0.7}
             >
                 <SearchIcon
                     size={18}
-                    color={activeTab === 'search' ? '#000' : '#9CA3AF'}
+                    color={activeTab === 'search' ? '#fff' : '#64748b'}
                 />
                 <Text
-                    className={`ml-2 font-semibold ${activeTab === 'search' ? 'text-black' : 'text-gray-400'
+                    className={`ml-2 font-semibold ${activeTab === 'search' ? 'text-white' : 'text-slate-400'
                         }`}
                 >
                     Rechercher
@@ -104,12 +104,12 @@ export default function SearchScreen() {
     // Render search input
     const renderSearchInput = () => (
         <View className="mx-4 mb-4">
-            <View className="flex-row items-center bg-gray-900/50 border border-gray-800 rounded-xl px-4 py-3">
-                <SearchIcon size={20} color="#9CA3AF" />
+            <View className="flex-row items-center bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+                <SearchIcon size={20} color="#64748b" />
                 <TextInput
                     className="flex-1 ml-3 text-white text-base"
                     placeholder="Rechercher un utilisateur..."
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor="#64748b"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     onSubmitEditing={handleSearch}
@@ -119,10 +119,10 @@ export default function SearchScreen() {
             {searchQuery.trim() && (
                 <TouchableOpacity
                     onPress={handleSearch}
-                    className="bg-yellow-500 rounded-xl py-3 mt-3"
+                    className="bg-emerald-500 rounded-xl py-3 mt-3"
                     activeOpacity={0.8}
                 >
-                    <Text className="text-black font-bold text-center">
+                    <Text className="text-white font-bold text-center">
                         Rechercher
                     </Text>
                 </TouchableOpacity>
@@ -135,8 +135,8 @@ export default function SearchScreen() {
         if (isLoadingLeaderboard) {
             return (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#EAB308" />
-                    <Text className="text-gray-400 mt-4">Chargement du classement...</Text>
+                    <ActivityIndicator size="large" color="#10b981" />
+                    <Text className="text-slate-400 mt-4">Chargement du classement...</Text>
                 </View>
             );
         }
@@ -166,7 +166,7 @@ export default function SearchScreen() {
                 showsVerticalScrollIndicator={false}
                 ListEmptyComponent={
                     <View className="items-center justify-center py-12">
-                        <Text className="text-gray-400">Aucun utilisateur trouvé</Text>
+                        <Text className="text-slate-400">Aucun utilisateur trouvé</Text>
                     </View>
                 }
             />
@@ -178,8 +178,8 @@ export default function SearchScreen() {
         if (isSearching) {
             return (
                 <View className="flex-1 items-center justify-center">
-                    <ActivityIndicator size="large" color="#EAB308" />
-                    <Text className="text-gray-400 mt-4">Recherche en cours...</Text>
+                    <ActivityIndicator size="large" color="#10b981" />
+                    <Text className="text-slate-400 mt-4">Recherche en cours...</Text>
                 </View>
             );
         }
@@ -187,7 +187,7 @@ export default function SearchScreen() {
         if (searchResults.length === 0 && searchQuery.trim()) {
             return (
                 <View className="items-center justify-center py-12">
-                    <Text className="text-gray-400">Aucun résultat trouvé</Text>
+                    <Text className="text-slate-400">Aucun résultat trouvé</Text>
                 </View>
             );
         }
@@ -208,8 +208,8 @@ export default function SearchScreen() {
                 ListEmptyComponent={
                     !searchQuery.trim() ? (
                         <View className="items-center justify-center py-12 px-8">
-                            <SearchIcon size={48} color="#4B5563" />
-                            <Text className="text-gray-400 text-center mt-4">
+                            <SearchIcon size={48} color="#475569" />
+                            <Text className="text-slate-400 text-center mt-4">
                                 Recherchez un utilisateur par son pseudo
                             </Text>
                         </View>
@@ -220,11 +220,11 @@ export default function SearchScreen() {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-slate-950" edges={['top']}>
             {/* Header */}
-            <View className="px-4 py-4 border-b border-gray-800">
+            <View className="px-4 py-4 border-b border-slate-800">
                 <Text className="text-white text-3xl font-bold">Champions</Text>
-                <Text className="text-gray-400 mt-1">
+                <Text className="text-slate-400 mt-1">
                     Découvrez les meilleurs tipsters
                 </Text>
             </View>
