@@ -1,12 +1,16 @@
 import logging
 import stripe
+from decimal import Decimal
 from django.conf import settings
 from connect.models import ConnectedAccount
+from users.models import TipsterProfile
 
 logger = logging.getLogger(__name__)
 
+
 class TipsterNotOnboardedError(Exception):
     pass
+
 
 def get_or_create_stripe_customer(user) -> str:
     stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -24,16 +28,67 @@ def get_or_create_stripe_customer(user) -> str:
     logger.info(f"Created new Stripe customer for user {user.email}: {customer.id}")
     return customer.id
 
+
+def get_or_create_tipster_price(tipster) -> str:
+    """
+    S8-05: Get or create a Stripe Price for this tipster's subscription.
+
+    1. If the tipster already has a stripe_price_id, use it.
+    2. Otherwise, create a new Stripe Product + Price and store the ID.
+    3. Falls back to STRIPE_SUBSCRIPTION_PRICE_ID if tipster has no profile.
+    """
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    # Check if tipster has a profile with pricing
+    try:
+        profile = tipster.tipster_profile
+    except TipsterProfile.DoesNotExist:
+        # Fallback to global price if no tipster profile
+        fallback_price = settings.STRIPE_SUBSCRIPTION_PRICE_ID
+        if fallback_price:
+            return fallback_price
+        raise ValueError("No tipster profile and no default STRIPE_SUBSCRIPTION_PRICE_ID configured.")
+
+    # If already has a Stripe price, return it
+    if profile.stripe_price_id:
+        return profile.stripe_price_id
+
+    # Create new Stripe Product + Price for this tipster
+    price_cents = int(profile.subscription_price * 100)
+
+    product = stripe.Product.create(
+        name=f"Abonnement — {tipster.username}",
+        metadata={'tipster_id': str(tipster.id)},
+    )
+
+    price = stripe.Price.create(
+        unit_amount=price_cents,
+        currency='eur',
+        recurring={'interval': 'month'},
+        product=product.id,
+        metadata={'tipster_id': str(tipster.id)},
+    )
+
+    # Store the price ID for future use
+    profile.stripe_price_id = price.id
+    profile.save(update_fields=['stripe_price_id'])
+
+    logger.info(
+        f"Created Stripe price {price.id} for tipster {tipster.username} "
+        f"at {profile.subscription_price} EUR/month"
+    )
+
+    return price.id
+
+
 def create_subscription_checkout(follower, tipster, success_url, cancel_url) -> str:
     stripe.api_key = settings.STRIPE_SECRET_KEY
     if not stripe.api_key:
         logger.error("Missing STRIPE_SECRET_KEY")
         raise ValueError("Missing STRIPE_SECRET_KEY")
 
-    price_id = settings.STRIPE_SUBSCRIPTION_PRICE_ID
-    if not price_id:
-        logger.error("Missing STRIPE_SUBSCRIPTION_PRICE_ID")
-        raise ValueError("Missing STRIPE_SUBSCRIPTION_PRICE_ID")
+    # S8-05: Use dynamic tipster pricing instead of global price
+    price_id = get_or_create_tipster_price(tipster)
 
     try:
         connected_account = tipster.connected_account
@@ -89,6 +144,5 @@ def cancel_subscription(subscription):
         logger.info(f"Canceled subscription {subscription.id} (stripe: {subscription.stripe_subscription_id})")
     except stripe.error.InvalidRequestError as e:
         logger.error(f"Stripe error canceling subscription: {e}")
-        # If Stripe says it's already canceled, update our DB anyway
         subscription.status = 'canceled'
         subscription.save()

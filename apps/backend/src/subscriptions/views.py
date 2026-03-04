@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseBadRequest
 from django.views import View
@@ -10,7 +11,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from users.models import CustomUser
+from users.models import CustomUser, TipsterProfile
 from subscriptions.models import Subscription
 from subscriptions.serializers import SubscriptionSerializer, TipsterDashboardSerializer
 from subscriptions.webhooks import process_stripe_webhook_payload, StripeWebhookSignatureError, StripeWebhookPayloadError
@@ -39,8 +40,6 @@ class SubscribeView(APIView):
         if has_active_subscription:
             return Response({'error': 'Active subscription already exists'}, status=status.HTTP_409_CONFLICT)
 
-        # Let the frontend determine the success/cancel URLs, or fallback to defaults
-        # To avoid passing full request URLs in testing or typical setups, we use placeholder or frontend provided URLs
         success_url = request.data.get('success_url', request.build_absolute_uri('/') + 'success/')
         cancel_url = request.data.get('cancel_url', request.build_absolute_uri('/') + 'cancel/')
 
@@ -58,6 +57,7 @@ class SubscribeView(APIView):
             logger.error(f"Error creating subscription checkout: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class MySubscriptionsView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = SubscriptionSerializer
@@ -67,6 +67,7 @@ class MySubscriptionsView(ListAPIView):
             follower=self.request.user,
             status='active'
         )
+
 
 class CancelSubscriptionView(APIView):
     permission_classes = [IsAuthenticated]
@@ -93,7 +94,12 @@ class CancelSubscriptionView(APIView):
             logger.error(f"Error canceling subscription: {e}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 class TipsterDashboardView(APIView):
+    """
+    GET  /api/me/dashboard/ — Dashboard data for tipster
+    POST /api/me/dashboard/ — Update subscription price (S8-05)
+    """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -101,19 +107,71 @@ class TipsterDashboardView(APIView):
         active_subs = Subscription.objects.filter(tipster=user, status="active")
         total_subs = Subscription.objects.filter(tipster=user)
 
-        # Price per month per subscriber (hardcode for now, refine later)
-        PRICE_PER_MONTH = 20.00  # EUR
-        PLATFORM_FEE = 0.20
+        # S8-05: Use tipster's actual price
+        price_per_month = Decimal('9.99')  # default
+        try:
+            profile = user.tipster_profile
+            price_per_month = Decimal(str(profile.subscription_price))
+        except TipsterProfile.DoesNotExist:
+            pass
+
+        PLATFORM_FEE = Decimal('0.20')
+        active_count = Decimal(str(active_subs.count()))
+        revenue = active_count * price_per_month * (Decimal('1') - PLATFORM_FEE)
 
         data = {
             "active_subscribers": active_subs.count(),
             "total_subscribers_ever": total_subs.count(),
-            "monthly_revenue_estimate": round(active_subs.count() * PRICE_PER_MONTH * (1 - PLATFORM_FEE), 2),
+            "monthly_revenue_estimate": float(round(revenue, 2)),
+            "subscription_price": f"{price_per_month:.2f}",
             "recent_subscriptions": TipsterDashboardSerializer(
                 active_subs.order_by("-created_at")[:10], many=True
             ).data,
         }
         return Response(data)
+
+    def post(self, request):
+        """S8-05: Update subscription price for the tipster."""
+        new_price = request.data.get('subscription_price')
+        if new_price is None:
+            return Response(
+                {'error': 'subscription_price is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            new_price = Decimal(str(new_price))
+        except Exception:
+            return Response(
+                {'error': 'Invalid price format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_price < Decimal('1.00') or new_price > Decimal('9999.99'):
+            return Response(
+                {'error': 'Price must be between 1.00 and 9999.99 EUR'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            profile = request.user.tipster_profile
+        except TipsterProfile.DoesNotExist:
+            return Response(
+                {'error': 'You must be a tipster to set a price'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Reset stripe_price_id so a new price is created on next checkout
+        profile.subscription_price = new_price
+        profile.stripe_price_id = ''
+        profile.save(update_fields=['subscription_price', 'stripe_price_id'])
+
+        logger.info(f"Tipster {request.user.username} updated price to {new_price} EUR/month")
+        return Response({
+            'subscription_price': str(new_price),
+            'message': 'Price updated. New subscribers will be charged the new price.'
+        })
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StripeWebhookView(View):

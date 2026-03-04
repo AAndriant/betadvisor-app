@@ -55,10 +55,11 @@ export default function ProfileScreen() {
     role: user.is_tipster ? ('TIPSTER' as const) : ('PUNTER' as const),
     isVerified: true,
     avatarUrl: user.avatar_url,
+    bio: user.bio || '',
     stats: {
       roi: user.stats?.roi || 0,
       winRate: user.stats?.win_rate || 0,
-      followers: user.stats?.total_bets || 0
+      followers: user.follower_count || 0
     }
   };
 
@@ -114,7 +115,7 @@ export default function ProfileScreen() {
                 likeCount={0}
                 commentCount={0}
                 isLiked={false}
-                onPressComment={() => {}}
+                onPressComment={() => { }}
               />
               {ticket.isPremium && !isSubscriber && (
                 <LockedContentOverlay onUnlock={() => console.log('Open Paywall')} />

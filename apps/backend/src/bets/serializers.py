@@ -1,13 +1,16 @@
+import re
+import bleach
 from rest_framework import serializers
 from django.apps import apps
 from .models import BetTicket
+from api.serializers import sanitize_text, validate_image_size
+
 
 class BetTicketSerializer(serializers.ModelSerializer):
     author_id = serializers.ReadOnlyField(source='author.id')
     author_name = serializers.ReadOnlyField(source='author.username')
-    # On génère un avatar temporaire si l'utilisateur n'en a pas
     author_avatar = serializers.SerializerMethodField()
-    
+
     # Social Metrics
     like_count = serializers.SerializerMethodField()
     is_liked_by_me = serializers.SerializerMethodField()
@@ -27,18 +30,15 @@ class BetTicketSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'status', 'payout', 'is_premium', 'author', 'created_at', 'settled_at']
 
     def get_is_locked(self, obj):
-        # Default value, logic handled in to_representation
         return False
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get("request")
 
-        # Default to locked if premium and not authenticated
         is_locked = instance.is_premium
 
         if instance.is_premium and request and request.user.is_authenticated:
-            # Author always sees their own bet
             if request.user == instance.author:
                 is_locked = False
             else:
@@ -62,32 +62,49 @@ class BetTicketSerializer(serializers.ModelSerializer):
         return data
 
     def get_author_avatar(self, obj):
-        # Fallback UI-Avatars en attendant le module User Profile complet
-        return f"https://ui-avatars.com/api/?name={obj.author.username}&background=10b981&color=fff"
-    
+        """Use real avatar_url property from CustomUser model."""
+        return obj.author.avatar_url
+
     def get_like_count(self, obj):
-        """Total number of likes for this bet"""
         return obj.likes.count()
-    
+
     def get_is_liked_by_me(self, obj):
-        """Check if current user liked this bet"""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
-    
+
     def get_comment_count(self, obj):
-        """Total number of comments for this bet"""
         return obj.comments.count()
+
 
 class BetCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = BetTicket
         fields = ['match_title', 'selection', 'odds', 'stake', 'ticket_image', 'is_premium']
 
+    # ─── S8-06: Input validation hardening ───────────────────
+    def validate_match_title(self, value):
+        """Validate match_title: max length, allowed characters (anti-XSS)."""
+        value = sanitize_text(value)
+        if len(value) > 255:
+            raise serializers.ValidationError("Match title must be 255 characters or fewer.")
+        # Allow letters, numbers, spaces, hyphens, periods, parentheses, vs/VS
+        if not re.match(r'^[\w\s\-\.()\/\':,&àâäéèêëïîôùûüçÀÂÄÉÈÊËÏÎÔÙÛÜÇ]+$', value, re.UNICODE):
+            raise serializers.ValidationError(
+                "Match title contains invalid characters."
+            )
+        return value
+
+    def validate_selection(self, value):
+        """Sanitize selection field."""
+        return sanitize_text(value)
+
     def validate_stake(self, value):
         if value <= 0:
             raise serializers.ValidationError("La mise doit être positive.")
+        if value > 1000000:
+            raise serializers.ValidationError("La mise ne peut pas dépasser 1 000 000.")
         return value
 
     def validate_odds(self, value):
@@ -96,6 +113,10 @@ class BetCreateSerializer(serializers.ModelSerializer):
         if value > 1000:
             raise serializers.ValidationError("Les cotes ne peuvent pas dépasser 1000.")
         return value
+
+    def validate_ticket_image(self, value):
+        """S8-06: Limit image size to 5 MB."""
+        return validate_image_size(value)
 
 
 class BetSettleSerializer(serializers.Serializer):

@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { router } from 'expo-router';
+import { showErrorToast, getErrorMessage } from './toast';
 
 // API URL from environment — set EXPO_PUBLIC_API_URL in apps/mobile/.env
 // Fallback: Android emulator uses 10.0.2.2, iOS/web use localhost
@@ -16,7 +17,9 @@ export const api = axios.create({
   },
 });
 
-// Add a request interceptor to inject the token
+// ────────────────────────────────────────────────────────────
+// Request interceptor — inject JWT token
+// ────────────────────────────────────────────────────────────
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -67,10 +70,21 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+// ────────────────────────────────────────────────────────────
+// Response interceptor — token refresh + S8-02: error toasts
+// ────────────────────────────────────────────────────────────
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // S8-02: Show toast for non-401 errors (401 is handled by refresh logic)
+    if (error.response?.status !== 401 || originalRequest._retry) {
+      // Don't toast for refresh token requests or already-retried requests
+      if (!originalRequest._isRefreshRequest) {
+        showErrorToast(getErrorMessage(error));
+      }
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -134,6 +148,9 @@ api.interceptors.response.use(
   }
 );
 
+// ────────────────────────────────────────────────────────────
+// Types
+// ────────────────────────────────────────────────────────────
 export interface Badge {
   id: string;
   name: string;
@@ -152,8 +169,41 @@ export interface UserProfile {
   id: string;
   username: string;
   avatar_url?: string;
+  bio?: string;
+  subscription_price?: string;
 }
 
+export interface TicketUser {
+  username: string;
+  avatar_url?: string;
+}
+
+export interface Ticket {
+  id: string;
+  image: string;
+  total_odds: number;
+  stake: number;
+  potential_gain: number;
+  status: 'won' | 'lost' | 'pending';
+  created_at: string;
+  user: TicketUser;
+}
+
+export interface DashboardData {
+  active_subscribers: number;
+  total_subscribers_ever: number;
+  monthly_revenue_estimate: number;
+  subscription_price: string;
+  recent_subscriptions: Array<{
+    follower_username: string;
+    status: string;
+    created_at: string;
+  }>;
+}
+
+// ────────────────────────────────────────────────────────────
+// Auth
+// ────────────────────────────────────────────────────────────
 export const logout = async () => {
   if (Platform.OS === 'web') {
     localStorage.removeItem('accessToken');
@@ -168,6 +218,9 @@ export const logout = async () => {
   }
 };
 
+// ────────────────────────────────────────────────────────────
+// API Functions
+// ────────────────────────────────────────────────────────────
 export const getUserStats = async (): Promise<UserStats> => {
   const response = await api.get('/api/me/stats/');
   return response.data;
@@ -186,8 +239,6 @@ export const register = async (data: Record<string, any>) => {
 export const uploadTicket = async (imageUri: string) => {
   const formData = new FormData();
   const filename = imageUri.split('/').pop() || 'ticket.jpg';
-
-  // Infer the type of the image
   const match = /\.(\w+)$/.exec(filename);
   const type = match ? `image/${match[1]}` : `image`;
 
@@ -195,37 +246,16 @@ export const uploadTicket = async (imageUri: string) => {
   formData.append('image', { uri: imageUri, name: filename, type });
 
   const response = await api.post('/api/tickets/upload/', formData, {
-    headers: {
-      // Explicitly undefined to let the browser/engine set the Content-Type with boundary
-      'Content-Type': undefined,
-    },
+    headers: { 'Content-Type': undefined },
   });
   return response.data;
 };
 
 export const getTicketStatus = async (urlOrId: string) => {
-  // If it's a full URL (starts with http), use it directly.
-  // Otherwise, assume it's an ID and construct the URL.
   const url = urlOrId.startsWith('http') ? urlOrId : `/api/tickets/${urlOrId}/`;
   const response = await api.get(url);
   return response.data;
 };
-
-export interface TicketUser {
-  username: string;
-  avatar_url?: string;
-}
-
-export interface Ticket {
-  id: string;
-  image: string;
-  total_odds: number;
-  stake: number;
-  potential_gain: number;
-  status: 'won' | 'lost' | 'pending';
-  created_at: string;
-  user: TicketUser;
-}
 
 export const getTickets = async (page: number = 1): Promise<{ results: Ticket[]; next: string | null; previous: string | null; count: number }> => {
   const response = await api.get(`/api/tickets/list/?page=${page}`);
@@ -233,29 +263,15 @@ export const getTickets = async (page: number = 1): Promise<{ results: Ticket[];
 };
 
 export const fetchMyProfile = async () => {
-  try {
-    const { data } = await api.get('/api/me/');
-    return data;
-  } catch (error) {
-    console.error("Erreur fetchMyProfile:", error);
-    throw error;
-  }
+  const { data } = await api.get('/api/me/');
+  return data;
 };
 
 export const createBet = async (formData: FormData) => {
-  try {
-    // ✅ FIX: Ne PAS mettre le Content-Type explicitement pour FormData
-    // Axios/Browser va automatiquement ajouter le boundary nécessaire
-    const { data } = await api.post('/api/bets/', formData, {
-      headers: {
-        'Content-Type': undefined,
-      },
-    });
-    return data;
-  } catch (error) {
-    console.error("Erreur createBet:", error);
-    throw error;
-  }
+  const { data } = await api.post('/api/bets/', formData, {
+    headers: { 'Content-Type': undefined },
+  });
+  return data;
 };
 
 export const fetchBets = async () => {
@@ -263,20 +279,16 @@ export const fetchBets = async () => {
   return data;
 };
 
-// Upload l'image et récupère l'URL de suivi (legacy — utiliser uploadTicket() si possible)
 export const uploadTicketImage = async (formData: FormData) => {
-  // ✅ FIX: ajout du préfixe /api/ manquant + suppression Content-Type explicite
   const { data } = await api.post('/api/tickets/upload/', formData, {
     headers: { 'Content-Type': undefined },
   });
-  return data; // Attend { ticket_id: '...', status_url: '...' }
+  return data;
 };
 
-// Vérifie le statut
 export const pollTicketStatus = async (ticketId: string) => {
-  // ✅ FIX: ajout du préfixe /api/ manquant
   const { data } = await api.get(`/api/tickets/${ticketId}/status/`);
-  return data; // Attend { status: 'PROCESSING' | 'VALIDATED', ocr_data: {...} }
+  return data;
 };
 
 export const createConnectedAccount = async () => {
@@ -303,17 +315,6 @@ export const getMySubscriptions = async () => {
   return data;
 };
 
-export interface DashboardData {
-  active_subscribers: number;
-  total_subscribers_ever: number;
-  monthly_revenue_estimate: number;
-  recent_subscriptions: Array<{
-    follower_username: string;
-    status: string;
-    created_at: string;
-  }>;
-}
-
 export const getDashboard = async (): Promise<DashboardData> => {
   const { data } = await api.get('/api/me/dashboard/');
   return data;
@@ -333,5 +334,44 @@ export const cancelSubscription = async (subscriptionId: string) => {
 
 export const requestPasswordReset = async (email: string) => {
   const { data } = await api.post('/api/auth/password-reset/', { email });
+  return data;
+};
+
+// ────────────────────────────────────────────────────────────
+// S8-01: Profile Update
+// ────────────────────────────────────────────────────────────
+export const updateProfile = async (data: { bio?: string; avatar?: any }) => {
+  const formData = new FormData();
+
+  if (data.bio !== undefined) {
+    formData.append('bio', data.bio);
+  }
+
+  if (data.avatar) {
+    const filename = data.avatar.uri.split('/').pop() || 'avatar.jpg';
+    const matchExt = /\.(\w+)$/.exec(filename);
+    const type = matchExt ? `image/${matchExt[1]}` : 'image/jpeg';
+
+    // @ts-ignore
+    formData.append('avatar', {
+      uri: data.avatar.uri,
+      name: filename,
+      type,
+    });
+  }
+
+  const response = await api.put('/api/me/profile/', formData, {
+    headers: { 'Content-Type': undefined },
+  });
+  return response.data;
+};
+
+// ────────────────────────────────────────────────────────────
+// S8-05: Update Subscription Price
+// ────────────────────────────────────────────────────────────
+export const updateSubscriptionPrice = async (price: string) => {
+  const { data } = await api.post('/api/me/dashboard/', {
+    subscription_price: price,
+  });
   return data;
 };
