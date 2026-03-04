@@ -276,6 +276,7 @@ EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 # SPORTS API — API-Sports.io + API-Tennis (auto-settlement)
 # ─────────────────────────────────────────────────────────────
 API_SPORTS_KEY = env("API_SPORTS_KEY", default="")
+API_TENNIS_KEY = env("API_TENNIS_KEY", default="")  # Separate subscription; falls back to API_SPORTS_KEY in sports_api.py
 
 # ─────────────────────────────────────────────────────────────
 # FILE UPLOAD LIMITS (S8-06)
