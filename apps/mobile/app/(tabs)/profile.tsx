@@ -2,14 +2,37 @@ import React, { useState } from 'react';
 import { View, ScrollView, Text, TouchableOpacity, ActivityIndicator, RefreshControl, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { useUserStats } from '../../src/hooks/useUserStats';
 import { fetchUserBets } from '../../src/services/users';
+import { settleBet } from '../../src/services/api';
+import { showSuccessToast } from '../../src/services/toast';
+
+interface SportStat {
+  sport: string;
+  total_bets: number;
+  wins: number;
+  winrate: number;
+  roi: number;
+}
+
+const SPORT_EMOJIS: Record<string, string> = {
+  Football: '⚽',
+  Basketball: '🏀',
+  Tennis: '🎾',
+  Baseball: '⚾',
+  Hockey: '🏒',
+  Rugby: '🏉',
+  Volleyball: '🏐',
+  Handball: '🤾',
+  'American Football': '🏈',
+};
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('Bets');
 
   // 1. Appel API via le Hook
@@ -27,6 +50,18 @@ export default function ProfileScreen() {
       pathname: '/comments/[id]',
       params: { id: betId }
     });
+  };
+
+  // S10-03: Handle settle
+  const handleSettle = async (betId: string, outcome: 'WON' | 'LOST' | 'VOID') => {
+    try {
+      await settleBet(betId, outcome);
+      showSuccessToast(`Pari résolu : ${outcome}`);
+      queryClient.invalidateQueries({ queryKey: ['myBets'] });
+      queryClient.invalidateQueries({ queryKey: ['myProfile'] });
+    } catch {
+      // Error toast handled by interceptor
+    }
   };
 
   // 2. Gestion Loading
@@ -73,6 +108,9 @@ export default function ProfileScreen() {
   // Parse paginated response
   const betsList = Array.isArray(userBets) ? userBets : (userBets?.results || []);
 
+  // S10-08: Sport stats
+  const sportStats: SportStat[] = user.sport_stats || [];
+
   return (
     <SafeAreaView className="flex-1 bg-slate-950 pb-24">
       <FlatList
@@ -83,15 +121,46 @@ export default function ProfileScreen() {
             {/* Header connecté à l'API */}
             <ProfileHeader user={formattedUser} isOwnProfile={true} />
 
-            {/* Bouton Devenir Tipster (uniquement pour les non-tipsters) */}
-            {!user.is_tipster && (
+            {/* S10-10A: CTA Buttons */}
+            {!user.is_tipster ? (
               <View className="px-4 mt-4">
                 <TouchableOpacity
                   onPress={() => router.push('/tipster-onboarding')}
-                  className="bg-emerald-500 py-3 rounded-xl items-center"
+                  className="bg-emerald-500 rounded-xl py-3 items-center"
                 >
-                  <Text className="text-white font-bold text-lg">Devenir Tipster</Text>
+                  <Text className="text-white font-bold text-lg">🚀 Devenir Tipster</Text>
                 </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="px-4 mt-4">
+                <TouchableOpacity
+                  onPress={() => router.push('/(tabs)/dashboard')}
+                  className="bg-slate-900 border border-emerald-500 rounded-xl py-3 items-center"
+                >
+                  <Text className="text-emerald-500 font-bold text-lg">📊 Mon Dashboard</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* S10-08: Stats par sport */}
+            {sportStats.length > 0 && (
+              <View className="px-4 mt-4">
+                <Text className="text-white font-bold text-lg mb-3">Stats par sport</Text>
+                <View className="flex-row flex-wrap">
+                  {sportStats.map((stat) => (
+                    <View
+                      key={stat.sport}
+                      className="bg-slate-900 rounded-xl p-3 mr-2 mb-2 border border-slate-800"
+                    >
+                      <Text className="text-white font-bold text-sm">
+                        {SPORT_EMOJIS[stat.sport] || '🏅'} {stat.sport}
+                      </Text>
+                      <Text className="text-slate-400 text-xs mt-1">
+                        {stat.winrate}% WR · {stat.roi > 0 ? '+' : ''}{stat.roi}% ROI
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
 
@@ -115,7 +184,7 @@ export default function ProfileScreen() {
           <View className="px-4 py-2">
             <TicketCard
               title={item.match_title}
-              odds={parseFloat(item.odds)}
+              odds={parseFloat(item.odds) || 0}
               status={item.status}
               roi={item.roi || null}
               id={item.id.toString()}
@@ -123,6 +192,8 @@ export default function ProfileScreen() {
               commentCount={item.comment_count || 0}
               isLiked={item.is_liked_by_me || false}
               onPressComment={() => handleNavigateToComments(item.id.toString())}
+              isOwner={true}
+              onSettle={(outcome) => handleSettle(item.id.toString(), outcome)}
             />
           </View>
         )}

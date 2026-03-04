@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image } from 'react-native';
 import { cn } from '../../lib/utils';
 import { CheckCircle2, XCircle, Clock, TrendingUp, Heart, MessageCircle } from 'lucide-react-native';
 import { toggleLike } from '../../services/social';
+import { LockedContentOverlay } from '../LockedContentOverlay';
 
 interface TicketCardProps {
   title: string;
@@ -18,10 +19,15 @@ interface TicketCardProps {
   authorName?: string;
   authorAvatar?: string;
   onPressAuthor?: () => void;
+  isOwner?: boolean;
+  onSettle?: (outcome: 'WON' | 'LOST' | 'VOID') => void;
+  isLocked?: boolean;
+  onUnlock?: () => void;
+  subscriptionPrice?: string;
 }
 
 
-export function TicketCard({ title, odds, status, roi, id, likeCount, commentCount, isLiked, onPressComment, authorId, authorName, authorAvatar, onPressAuthor }: TicketCardProps) {
+export function TicketCard({ title, odds, status, roi, id, likeCount, commentCount, isLiked, onPressComment, authorId, authorName, authorAvatar, onPressAuthor, isOwner, onSettle, isLocked, onUnlock, subscriptionPrice }: TicketCardProps) {
   const [liked, setLiked] = useState(isLiked);
   const [count, setCount] = useState(likeCount);
 
@@ -50,7 +56,7 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
   const Icon = config.icon;
 
   return (
-    <View className={cn("w-full bg-slate-900 border rounded-xl p-4 mb-3", config.border)}>
+    <View className={cn("w-full bg-slate-900 border rounded-xl p-4 mb-3 relative", config.border)}>
       <View className="flex-row justify-between items-start mb-3">
         <View className="flex-1 mr-4">
           <Text className="text-white font-bold text-lg mb-1">{title}</Text>
@@ -62,7 +68,7 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
 
         <View className="bg-slate-950 px-3 py-2 rounded-lg border border-slate-800 items-center">
           <Text className="text-slate-400 text-xs uppercase font-bold">Cote</Text>
-          <Text className="text-white font-bold text-lg">{odds.toFixed(2)}</Text>
+          <Text className="text-white font-bold text-lg">{odds?.toFixed(2) ?? '—'}</Text>
         </View>
       </View>
 
@@ -97,6 +103,33 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
         </View>
       )}
 
+      {/* S10-03: Settle buttons for owner on PENDING bets */}
+      {isOwner && status === 'PENDING' && onSettle && (
+        <View className="flex-row border-t border-slate-800 pt-3 mt-3">
+          <TouchableOpacity
+            onPress={() => onSettle('WON')}
+            className="bg-emerald-500 rounded-xl flex-1 py-2 mr-1 items-center"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white font-bold text-sm">✅ Gagné</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onSettle('LOST')}
+            className="bg-red-500 rounded-xl flex-1 py-2 mx-1 items-center"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white font-bold text-sm">❌ Perdu</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => onSettle('VOID')}
+            className="bg-slate-700 rounded-xl flex-1 py-2 ml-1 items-center"
+            activeOpacity={0.7}
+          >
+            <Text className="text-white font-bold text-sm">🔄 Annulé</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Action Bar */}
       <View className="flex-row items-center border-t border-slate-800 pt-3 mt-3">
         <TouchableOpacity
@@ -125,6 +158,14 @@ export function TicketCard({ title, odds, status, roi, id, likeCount, commentCou
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* S10-06: Premium content gating overlay */}
+      {isLocked && (
+        <LockedContentOverlay
+          price={subscriptionPrice}
+          onUnlock={onUnlock || (() => { })}
+        />
+      )}
     </View>
   );
 }

@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { User, Bell, Shield, LogOut, ChevronRight, Pencil } from 'lucide-react-native';
+import { User, Bell, Shield, LogOut, ChevronRight, Pencil, CreditCard, Camera, FileText } from 'lucide-react-native';
 import { logout } from '../../src/services/api';
+import { showSuccessToast } from '../../src/services/toast';
+import Constants from 'expo-constants';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -17,6 +19,12 @@ export default function SettingsScreen() {
 
   const settingsItems = [
     {
+      icon: <CreditCard size={20} color="#10b981" />,
+      label: 'Mes abonnements',
+      subtitle: 'Gérer, annuler',
+      onPress: () => router.push('/my-subscriptions'),
+    },
+    {
       icon: <Pencil size={20} color="#10b981" />,
       label: 'Modifier le profil',
       subtitle: 'Avatar, bio',
@@ -26,13 +34,25 @@ export default function SettingsScreen() {
       icon: <Bell size={20} color="#eab308" />,
       label: 'Notifications',
       subtitle: 'Gérer les alertes push',
-      onPress: () => { },
+      onPress: () => showSuccessToast('Les notifications push sont activées'),
     },
     {
       icon: <Shield size={20} color="#6366f1" />,
       label: 'Sécurité',
       subtitle: 'Mot de passe, sessions',
-      onPress: () => { },
+      onPress: () => router.push('/security'),
+    },
+    {
+      icon: <Camera size={20} color="#3b82f6" />,
+      label: 'Mes tickets OCR',
+      subtitle: 'Historique uploads',
+      onPress: () => router.push('/my-tickets'),
+    },
+    {
+      icon: <FileText size={20} color="#8b5cf6" />,
+      label: 'CGU & Mentions',
+      subtitle: 'Conditions, confidentialité',
+      onPress: () => router.push('/legal'),
     },
   ];
 
@@ -71,7 +91,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Version */}
-        <Text style={styles.version}>BetAdvisor v1.0.0 · Sprint 8</Text>
+        <Text style={styles.version}>BetAdvisor v{Constants.expoConfig?.version ?? '1.0.0'}</Text>
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { View, FlatList, ActivityIndicator, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { useAuth } from '../../src/context/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../src/services/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, settleBet, fetchMyProfile } from '../../src/services/api';
+import { showSuccessToast } from '../../src/services/toast';
 
 interface PaginatedBets {
   results: any[];
@@ -17,9 +18,17 @@ interface PaginatedBets {
 export default function FeedScreen() {
   const { accessToken } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [allBets, setAllBets] = useState<any[]>([]);
   const [nextPage, setNextPage] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Fetch current user to check ownership
+  const { data: currentUser } = useQuery({
+    queryKey: ['myProfile'],
+    queryFn: fetchMyProfile,
+    enabled: !!accessToken,
+  });
 
   const { isLoading, error, refetch } = useQuery({
     queryKey: ['feed'],
@@ -34,11 +43,25 @@ export default function FeedScreen() {
     enabled: !!accessToken,
   });
 
+  // S10-10C: Refresh feed when tab is focused
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
+
   const handleNavigateToComments = (betId: string) => {
     router.push({
       pathname: '/comments/[id]',
       params: { id: betId }
     });
+  };
+
+  // S10-03: Handle settle
+  const handleSettle = async (betId: string, outcome: 'WON' | 'LOST' | 'VOID') => {
+    try {
+      await settleBet(betId, outcome);
+      showSuccessToast(`Pari résolu : ${outcome}`);
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+    } catch {
+      // Error toast handled by interceptor
+    }
   };
 
   const handleLoadMore = useCallback(async () => {
@@ -72,6 +95,8 @@ export default function FeedScreen() {
     </View>
   );
 
+  const userId = currentUser?.id;
+
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
       <View className="px-4 py-2 border-b border-slate-800">
@@ -85,7 +110,7 @@ export default function FeedScreen() {
           <View className="px-4 py-2">
             <TicketCard
               title={item.match_title}
-              odds={parseFloat(item.odds)}
+              odds={parseFloat(item.odds) || 0}
               status={item.status}
               roi={null}
               id={item.id.toString()}
@@ -99,6 +124,13 @@ export default function FeedScreen() {
               onPressAuthor={() => router.push({
                 pathname: '/user/[id]',
                 params: { id: item.author_id }
+              })}
+              isOwner={userId ? item.author_id?.toString() === userId.toString() : false}
+              onSettle={(outcome) => handleSettle(item.id.toString(), outcome)}
+              isLocked={item.is_locked || false}
+              onUnlock={() => router.push({
+                pathname: '/subscribe',
+                params: { tipsterId: item.author_id }
               })}
             />
           </View>

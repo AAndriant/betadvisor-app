@@ -137,8 +137,5 @@ jobs:
         run: npm ci
 
       - name: TypeScript check
-        # Non-blocking actuellement (types @types/react-native à stabiliser)
-        # Passer bloquant une fois tsconfig stabilisé
         working-directory: apps/mobile
         run: npx tsc --noEmit
-        continue-on-error: true

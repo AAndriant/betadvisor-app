@@ -10,6 +10,26 @@ import { toggleFollow } from '../../src/services/social';
 import { fetchMyProfile, getMySubscriptions } from '../../src/services/api';
 import { showSuccessToast } from '../../src/services/toast';
 
+interface SportStat {
+    sport: string;
+    total_bets: number;
+    wins: number;
+    winrate: number;
+    roi: number;
+}
+
+const SPORT_EMOJIS: Record<string, string> = {
+    Football: '⚽',
+    Basketball: '🏀',
+    Tennis: '🎾',
+    Baseball: '⚾',
+    Hockey: '🏒',
+    Rugby: '🏉',
+    Volleyball: '🏐',
+    Handball: '🤾',
+    'American Football': '🏈',
+};
+
 export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
@@ -42,7 +62,7 @@ export default function UserProfileScreen() {
     });
 
     // Follow/Unfollow mutation with optimistic updates
-    const followMutation = useMutation({
+    const followMutation = useMutation<any, Error, void>({
         mutationFn: () => toggleFollow(id!),
         onMutate: async () => {
             // Cancel outgoing refetches
@@ -65,13 +85,13 @@ export default function UserProfileScreen() {
 
             return { previousProfile };
         },
-        onError: (err, variables, context) => {
+        onError: (_err: any, _variables: any, context: any) => {
             // Revert on error
             if (context?.previousProfile) {
                 queryClient.setQueryData(['user', id], context.previousProfile);
             }
         },
-        onSettled: (data) => {
+        onSettled: () => {
             // Show toast feedback
             const profile: any = queryClient.getQueryData(['user', id]);
             if (profile?.is_followed_by_me) {
@@ -143,6 +163,9 @@ export default function UserProfileScreen() {
         },
     };
 
+    // S10-08: Sport stats
+    const sportStats: SportStat[] = (userProfile as any).sport_stats || [];
+
     // Empty state component
     const EmptyState = () => (
         <View className="flex-1 justify-center items-center p-8 mt-12">
@@ -161,20 +184,44 @@ export default function UserProfileScreen() {
                 data={betsList}
                 keyExtractor={(item: any) => item.id.toString()}
                 ListHeaderComponent={
-                    <ProfileHeader
-                        user={formattedUser}
-                        isFollowed={userProfile.is_followed_by_me}
-                        onToggleFollow={handleToggleFollow}
-                        isOwnProfile={isOwnProfile}
-                        isSubscribed={isSubscribed}
-                        onSubscribe={handleSubscribe}
-                    />
+                    <>
+                        <ProfileHeader
+                            user={formattedUser}
+                            isFollowed={userProfile.is_followed_by_me}
+                            onToggleFollow={handleToggleFollow}
+                            isOwnProfile={isOwnProfile}
+                            isSubscribed={isSubscribed}
+                            onSubscribe={handleSubscribe}
+                        />
+
+                        {/* S10-08: Stats par sport */}
+                        {sportStats.length > 0 && (
+                            <View className="px-4 mt-4">
+                                <Text className="text-white font-bold text-lg mb-3">Stats par sport</Text>
+                                <View className="flex-row flex-wrap">
+                                    {sportStats.map((stat) => (
+                                        <View
+                                            key={stat.sport}
+                                            className="bg-slate-900 rounded-xl p-3 mr-2 mb-2 border border-slate-800"
+                                        >
+                                            <Text className="text-white font-bold text-sm">
+                                                {SPORT_EMOJIS[stat.sport] || '🏅'} {stat.sport}
+                                            </Text>
+                                            <Text className="text-slate-400 text-xs mt-1">
+                                                {stat.winrate}% WR · {stat.roi > 0 ? '+' : ''}{stat.roi}% ROI
+                                            </Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
+                    </>
                 }
                 renderItem={({ item }) => (
                     <View className="px-4 py-2">
                         <TicketCard
                             title={item.match_title}
-                            odds={parseFloat(item.odds)}
+                            odds={parseFloat(item.odds) || 0}
                             status={item.status}
                             roi={item.roi || null}
                             id={item.id.toString()}
@@ -182,6 +229,8 @@ export default function UserProfileScreen() {
                             commentCount={item.comment_count || 0}
                             isLiked={item.is_liked_by_me || false}
                             onPressComment={() => handleNavigateToComments(item.id.toString())}
+                            isLocked={item.is_locked || false}
+                            onUnlock={handleSubscribe}
                         />
                     </View>
                 )}
