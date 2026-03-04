@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Linking from 'expo-linking';
 import { useQueryClient } from '@tanstack/react-query';
 import { createSubscriptionCheckout } from '../src/services/api';
+import { showSuccessToast } from '../src/services/toast';
 
 export default function SubscribeScreen() {
   const router = useRouter();
@@ -56,6 +57,7 @@ export default function SubscribeScreen() {
     if (currentUrl.includes('/return/success')) {
       // Invalidate queries so that subscriptions and profile are refreshed
       queryClient.invalidateQueries({ queryKey: ['mySubscriptions'] });
+      showSuccessToast('Abonnement souscrit avec succès !');
       // Go back to the tipster profile
       router.back();
     } else if (currentUrl.includes('/return/cancel')) {

@@ -40,7 +40,6 @@ export default function Signup() {
     } catch (error: any) {
       let errorMessage = "Échec de l'inscription. Veuillez réessayer.";
       if (error.response && error.response.data) {
-        // Extract the first error message if available
         const data = error.response.data;
         const firstKey = Object.keys(data)[0];
         if (firstKey && Array.isArray(data[firstKey])) {
@@ -56,57 +55,62 @@ export default function Signup() {
   };
 
   return (
-    <View className="flex-1 justify-center items-center bg-gray-100 p-4">
-      <View className="w-full max-w-sm bg-white p-6 rounded-xl shadow-md">
-        <Text className="text-2xl font-bold mb-6 text-center text-gray-800">Inscription</Text>
+    <View className="flex-1 justify-center items-center bg-slate-950 p-4">
+      <View className="w-full max-w-sm bg-slate-900 p-6 rounded-xl border border-slate-800">
+        <Text className="text-3xl font-bold mb-2 text-center text-white">BetAdvisor</Text>
+        <Text className="text-sm text-slate-400 text-center mb-8">Crée ton compte</Text>
 
         <View className="mb-4">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Nom d'utilisateur</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Nom d'utilisateur</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={username}
             onChangeText={setUsername}
             placeholder="Entrez votre nom d'utilisateur"
+            placeholderTextColor="#64748b"
             autoCapitalize="none"
           />
         </View>
 
         <View className="mb-4">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Email</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Email</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={email}
             onChangeText={setEmail}
             placeholder="Entrez votre adresse email"
+            placeholderTextColor="#64748b"
             keyboardType="email-address"
             autoCapitalize="none"
           />
         </View>
 
         <View className="mb-4">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Mot de passe</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Mot de passe</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={password}
             onChangeText={setPassword}
             placeholder="Entrez votre mot de passe"
+            placeholderTextColor="#64748b"
             secureTextEntry
           />
         </View>
 
         <View className="mb-6">
-          <Text className="block text-gray-700 text-sm font-bold mb-2">Confirmer le mot de passe</Text>
+          <Text className="text-slate-300 text-sm font-bold mb-2">Confirmer le mot de passe</Text>
           <TextInput
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-blue-500"
+            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white"
             value={passwordConfirm}
             onChangeText={setPasswordConfirm}
             placeholder="Confirmez votre mot de passe"
+            placeholderTextColor="#64748b"
             secureTextEntry
           />
         </View>
 
         <TouchableOpacity
-          className={`w-full bg-blue-600 py-3 rounded-md items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
+          className={`w-full bg-emerald-500 py-3 rounded-xl items-center mb-4 ${isSubmitting ? 'opacity-70' : ''}`}
           onPress={handleSignup}
           disabled={isSubmitting}
         >
@@ -118,7 +122,7 @@ export default function Signup() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()}>
-          <Text className="text-blue-600 text-center font-medium">Retour à la connexion</Text>
+          <Text className="text-emerald-500 text-center font-medium">Retour à la connexion</Text>
         </TouchableOpacity>
       </View>
     </View>

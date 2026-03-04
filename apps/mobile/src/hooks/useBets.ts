@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchBets, createBet, uploadTicketImage, pollTicketStatus } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Alert } from 'react-native';
+import { showSuccessToast, showErrorToast } from '../services/toast';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
@@ -25,12 +25,12 @@ export const useCreateBet = () => {
       // Invalide le cache pour rafraîchir le feed et le profil immédiatement
       queryClient.invalidateQueries({ queryKey: ['feed'] });
       queryClient.invalidateQueries({ queryKey: ['myProfile'] });
-      Alert.alert("Succès", "Ton pari est en ligne !");
+      showSuccessToast('Ton pari est en ligne !');
       router.back(); // Ferme la modale
     },
     onError: (error) => {
       console.error(error);
-      Alert.alert("Erreur", "Impossible de publier le pari.");
+      showErrorToast('Impossible de publier le pari.');
     }
   });
 };

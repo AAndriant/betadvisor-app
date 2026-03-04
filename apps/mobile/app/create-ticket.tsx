@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Image, ActivityIndicator, ScrollView, Ale
 import * as ImagePicker from 'expo-image-picker';
 import { uploadTicket } from '../src/features/tickets/ticketService';
 import { useRouter } from 'expo-router';
+import { showSuccessToast, showErrorToast } from '../src/services/toast';
 
 export default function CreateTicket() {
     const [image, setImage] = useState<string | null>(null);
@@ -13,7 +14,6 @@ export default function CreateTicket() {
     const [aspectRatio, setAspectRatio] = useState(1);
 
     const pickImage = async () => {
-        // Request permission
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
             Alert.alert('Permission refusée', 'Nous avons besoin de la permission pour accéder à la galerie.');
@@ -22,7 +22,7 @@ export default function CreateTicket() {
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: false, // On laisse l'image entière
+            allowsEditing: false,
             quality: 1,
         });
 
@@ -44,7 +44,7 @@ export default function CreateTicket() {
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            allowsEditing: false, // On laisse l'image entière
+            allowsEditing: false,
             quality: 1,
         });
 
@@ -65,26 +65,26 @@ export default function CreateTicket() {
         try {
             const data = await uploadTicket(image);
             setResult(data);
-            Alert.alert('Succès', 'Ticket analysé avec succès !');
+            showSuccessToast('Ticket analysé avec succès !');
         } catch (error: any) {
             console.error(error);
             const errorMessage = error.response?.data ? JSON.stringify(error.response.data) : (error.message || "Une erreur est survenue");
-            Alert.alert('Erreur', errorMessage);
+            showErrorToast(errorMessage);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <View className="flex-1 bg-white">
+        <View className="flex-1 bg-slate-950">
             <ScrollView className="flex-1 p-4">
-                <Text className="text-2xl font-bold mb-6 text-center text-gray-800">Nouveau Ticket</Text>
+                <Text className="text-2xl font-bold mb-6 text-center text-white">Nouveau Ticket</Text>
 
                 <View className="space-y-4">
                     {/* Primary Button: Gallery */}
                     <TouchableOpacity
                         onPress={pickImage}
-                        className="bg-blue-600 p-4 rounded-xl items-center shadow-lg"
+                        className="bg-emerald-500 p-4 rounded-xl items-center shadow-lg"
                     >
                         <Text className="text-white font-bold text-lg">Importer un Ticket</Text>
                     </TouchableOpacity>
@@ -92,9 +92,9 @@ export default function CreateTicket() {
                     {/* Secondary Button: Camera */}
                     <TouchableOpacity
                         onPress={takePhoto}
-                        className="border border-blue-600 p-3 rounded-xl items-center"
+                        className="border border-emerald-500 p-3 rounded-xl items-center"
                     >
-                        <Text className="text-blue-600 font-semibold text-base">Prendre une photo</Text>
+                        <Text className="text-emerald-500 font-semibold text-base">Prendre une photo</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -105,16 +105,16 @@ export default function CreateTicket() {
                             source={{ uri: image }}
                             style={{ width: '100%', aspectRatio: aspectRatio }}
                             resizeMode="contain"
-                            className="rounded-lg bg-gray-100"
+                            className="rounded-lg bg-slate-900"
                         />
                     </View>
                 )}
 
                 {/* Result Display */}
                 {result && (
-                    <View className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200 mb-20">
-                        <Text className="font-bold text-lg mb-2 text-gray-800">Résultat de l'analyse :</Text>
-                        <Text className="font-mono text-xs text-gray-600">
+                    <View className="mt-8 p-4 bg-slate-900 rounded-lg border border-slate-800 mb-20">
+                        <Text className="font-bold text-lg mb-2 text-white">Résultat de l'analyse :</Text>
+                        <Text className="font-mono text-xs text-slate-400">
                             {JSON.stringify(result, null, 2)}
                         </Text>
                     </View>
@@ -123,11 +123,11 @@ export default function CreateTicket() {
 
             {/* Sticky Action Button */}
             {image && (
-                <View className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
+                <View className="absolute bottom-0 left-0 right-0 p-4 bg-slate-950 border-t border-slate-800">
                     <TouchableOpacity
                         onPress={handleUpload}
                         disabled={loading}
-                        className={`w-full p-4 rounded-xl items-center ${loading ? 'bg-gray-400' : 'bg-green-600'}`}
+                        className={`w-full p-4 rounded-xl items-center ${loading ? 'bg-slate-700' : 'bg-emerald-500'}`}
                     >
                         {loading ? (
                             <ActivityIndicator color="white" />

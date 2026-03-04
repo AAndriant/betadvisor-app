@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useCreateBet, useAnalyzeTicket } from '../../src/hooks/useBets';
 import { Camera, X, Sparkles } from 'lucide-react-native';
+import { showSuccessToast, showErrorToast } from '../../src/services/toast';
 
 export default function PostScreen() {
   const [match, setMatch] = useState('');
@@ -45,9 +46,9 @@ export default function PostScreen() {
       if (ocrData.stake) setStake(ocrData.stake.toString());
       if (ocrData.selection) setSelection(ocrData.selection);
 
-      Alert.alert("Succès", "Ticket analysé avec succès !");
+      showSuccessToast("Ticket analysé avec succès !");
     } catch (error: any) {
-      Alert.alert("Erreur", error.message || "Impossible d'analyser le ticket.");
+      showErrorToast(error.message || "Impossible d'analyser le ticket.");
     }
   };
 

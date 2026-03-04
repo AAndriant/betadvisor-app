@@ -19,8 +19,8 @@ export default function Index() {
     }, [accessToken, isLoading, router]);
 
     return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#0000ff" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#020617' }}>
+            <ActivityIndicator size="large" color="#10b981" />
         </View>
     );
 }
