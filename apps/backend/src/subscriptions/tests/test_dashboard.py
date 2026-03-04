@@ -3,12 +3,18 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from django.contrib.auth import get_user_model
 from subscriptions.models import Subscription
+from users.models import TipsterProfile
 
 User = get_user_model()
 
 class TipsterDashboardTests(APITestCase):
     def setUp(self):
         self.tipster = User.objects.create_user(username="tipster", email="t@t.com", password="p")
+        # S8-05: Create tipster profile with explicit price
+        self.tipster_profile = TipsterProfile.objects.create(
+            user=self.tipster,
+            subscription_price=20.00,
+        )
         self.follower1 = User.objects.create_user(username="f1", email="f1@t.com", password="p")
         self.follower2 = User.objects.create_user(username="f2", email="f2@t.com", password="p")
         self.url = reverse("my-dashboard")
@@ -24,8 +30,9 @@ class TipsterDashboardTests(APITestCase):
         self.assertEqual(response.data["active_subscribers"], 1)
         self.assertEqual(response.data["total_subscribers_ever"], 2)
 
-        # 1 active sub * 20 EUR * (1 - 0.20 platform fee) = 16.0
+        # 1 active sub * 20.00 EUR * (1 - 0.20 platform fee) = 16.0
         self.assertEqual(response.data["monthly_revenue_estimate"], 16.0)
+        self.assertEqual(response.data["subscription_price"], "20.00")
         self.assertEqual(len(response.data["recent_subscriptions"]), 1)
 
         recent_sub = response.data["recent_subscriptions"][0]

@@ -1,13 +1,13 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 
 from bets.models import BetTicket
 from bets.serializers import BetTicketSerializer, BetCreateSerializer, BetSettleSerializer
-from .serializers import UserProfileSerializer
+from .serializers import UserProfileSerializer, ProfileUpdateSerializer
 
 import logging
 
@@ -20,7 +20,7 @@ class BetViewSet(viewsets.ModelViewSet):
     """
     queryset = BetTicket.objects.all().select_related('author').prefetch_related('likes', 'comments').order_by('-created_at')
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    parser_classes = (MultiPartParser, FormParser) # Pour gérer l'upload d'image
+    parser_classes = (MultiPartParser, FormParser)  # Pour gérer l'upload d'image
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['author']
 
@@ -89,11 +89,34 @@ def _update_user_stats(user, outcome):
 
 class MyProfileView(APIView):
     """
-    Endpoint Dashboard : Renvoie les infos du user connecté + ses stats calculées
+    GET  /api/me/      — Renvoie les infos du user connecté + ses stats
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        serializer = UserProfileSerializer(request.user)
+        serializer = UserProfileSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
+
+class MyProfileUpdateView(APIView):
+    """
+    PUT /api/me/profile/ — Update avatar + bio for the authenticated user.
+    Accepts multipart/form-data for file upload.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def put(self, request):
+        serializer = ProfileUpdateSerializer(
+            request.user, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        # Return full profile after update
+        profile_serializer = UserProfileSerializer(request.user, context={'request': request})
+        return Response(profile_serializer.data)
+
+    def patch(self, request):
+        """PATCH also supported for partial updates."""
+        return self.put(request)

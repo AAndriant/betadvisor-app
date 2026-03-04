@@ -8,6 +8,7 @@ interface ProfileHeaderProps {
     name: string;
     handle: string;
     avatarUrl?: string;
+    bio?: string;
     isVerified?: boolean;
     role: 'TIPSTER' | 'PUNTER';
     stats?: {
@@ -46,8 +47,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, 
               <TouchableOpacity
                 onPress={onToggleFollow}
                 className={`px-4 py-2 rounded-full justify-center ${isFollowed
-                    ? 'bg-transparent border border-emerald-500'
-                    : 'bg-transparent border border-slate-600'
+                  ? 'bg-transparent border border-emerald-500'
+                  : 'bg-transparent border border-slate-600'
                   }`}
               >
                 <Text className={`font-bold text-sm ${isFollowed ? 'text-emerald-500' : 'text-white'}`}>
@@ -77,6 +78,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ user, isFollowed, 
           {user.isVerified && <CheckCircle2 size={20} color="#10b981" fill="black" />}
         </View>
         <Text className="text-slate-400 text-sm">@{user.handle} • Paris Sportifs</Text>
+        {user.bio ? (
+          <Text className="text-slate-300 text-sm mt-2" numberOfLines={3}>{user.bio}</Text>
+        ) : null}
       </View>
 
       {/* High-Level Stats (Unit Economics) */}

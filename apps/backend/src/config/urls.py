@@ -5,7 +5,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
-from api.views import BetViewSet, MyProfileView
+from api.views import BetViewSet, MyProfileView, MyProfileUpdateView
 from users.views import UserViewSet
 from subscriptions.views import StripeWebhookView, MySubscriptionsView, TipsterDashboardView
 
@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/health/', lambda r: JsonResponse({'status': 'ok'})),
     path('api/', include(router.urls)),
     path('api/me/', MyProfileView.as_view(), name='my-profile'),
+    path('api/me/profile/', MyProfileUpdateView.as_view(), name='my-profile-update'),
     path('api/me/dashboard/', TipsterDashboardView.as_view(), name='my-dashboard'),
 
     path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
@@ -32,6 +33,9 @@ urlpatterns = [
     path('api/me/subscriptions/', MySubscriptionsView.as_view(), name='my-subscriptions'),
     path('api/stripe/webhook/', StripeWebhookView.as_view(), name='stripe-webhook'),
     path('finance/', include('finance.urls')),
+
+    # S8-03: Push notifications
+    path('api/me/', include('notifications.urls')),
 ]
 
 if settings.DEBUG:

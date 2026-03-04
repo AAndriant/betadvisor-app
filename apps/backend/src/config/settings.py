@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'api',
     'connect',
     'subscriptions',
+    'notifications',
 ]
 
 MIDDLEWARE = [
@@ -268,3 +269,14 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@betadvisor.app")
 # SPORTS API — API-Sports.io + API-Tennis (auto-settlement)
 # ─────────────────────────────────────────────────────────────
 API_SPORTS_KEY = env("API_SPORTS_KEY", default="")
+
+# ─────────────────────────────────────────────────────────────
+# FILE UPLOAD LIMITS (S8-06)
+# ─────────────────────────────────────────────────────────────
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024   # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB (for multipart)
+
+# ─────────────────────────────────────────────────────────────
+# PUSH NOTIFICATIONS (Expo Push API)
+# ─────────────────────────────────────────────────────────────
+EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"

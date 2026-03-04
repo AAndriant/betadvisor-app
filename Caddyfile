@@ -1,0 +1,41 @@
+# =============================================================
+# BetAdvisor — Caddy Reverse Proxy Configuration
+# =============================================================
+# Replace api.betadvisor.app with your actual domain.
+# Caddy automatically manages HTTPS via Let's Encrypt.
+# =============================================================
+
+# ── Production with Domain ────────────────────────────────────
+# Uncomment and replace with your domain:
+# api.betadvisor.app {
+#     reverse_proxy backend:8000
+#
+#     # Serve uploaded media files directly
+#     handle_path /media/* {
+#         root * /srv/media
+#         file_server
+#     }
+#
+#     # Security headers
+#     header {
+#         X-Content-Type-Options "nosniff"
+#         X-Frame-Options "DENY"
+#         Referrer-Policy "strict-origin-when-cross-origin"
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#     }
+# }
+
+# ── Development / Pre-domain (HTTP only) ──────────────────────
+:80 {
+    reverse_proxy backend:8000
+
+    handle_path /media/* {
+        root * /srv/media
+        file_server
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+    }
+}

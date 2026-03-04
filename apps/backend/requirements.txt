@@ -11,3 +11,4 @@ stripe
 django-filter>=24.0
 django-cors-headers>=4.3.0
 whitenoise>=6.0.0
+bleach>=6.0.0

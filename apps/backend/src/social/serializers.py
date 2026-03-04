@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import Comment, Like
+from api.serializers import sanitize_text
+
 
 class CommentSerializer(serializers.ModelSerializer):
     user_name = serializers.ReadOnlyField(source='user.username')
@@ -11,13 +13,23 @@ class CommentSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'user_name', 'user_avatar']
 
     def get_user_avatar(self, obj):
-        # Fallback UI-Avatars
-        return f"https://ui-avatars.com/api/?name={obj.user.username}&background=10b981&color=fff"
+        """Use real avatar_url property from CustomUser model."""
+        return obj.user.avatar_url
+
+    def validate_content(self, value):
+        """S8-06: Sanitize comment content (anti-XSS)."""
+        value = sanitize_text(value)
+        if not value:
+            raise serializers.ValidationError("Comment content cannot be empty.")
+        if len(value) > 500:
+            raise serializers.ValidationError("Comment must be 500 characters or fewer.")
+        return value
 
     def create(self, validated_data):
         # Automatically set the user from the request
         validated_data['user'] = self.context['request'].user
         return super().create(validated_data)
+
 
 class LikeSerializer(serializers.ModelSerializer):
     class Meta:

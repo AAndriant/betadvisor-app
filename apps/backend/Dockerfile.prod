@@ -1,0 +1,72 @@
+# ──────────────────────────────────────────────────────────────
+# BetAdvisor — Production Dockerfile (multi-stage)
+# ──────────────────────────────────────────────────────────────
+# Stage 1: Builder (install dependencies)
+# Stage 2: Runner (slim, production-ready)
+# ──────────────────────────────────────────────────────────────
+
+# ── Stage 1: Builder ──────────────────────────────────────────
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /build
+
+# Install system deps for psycopg2
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
+# ── Stage 2: Runner ──────────────────────────────────────────
+FROM python:3.11-slim AS runner
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV DJANGO_SETTINGS_MODULE=config.settings
+
+# Runtime deps only (libpq for psycopg2)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Collect static files (run at build time with dummy env)
+RUN SECRET_KEY=build-collect-static \
+    STRIPE_SECRET_KEY=sk_build_dummy \
+    DATABASE_URL=sqlite:///tmp/build.db \
+    DEBUG=False \
+    ALLOWED_HOSTS=* \
+    python src/manage.py collectstatic --noinput 2>/dev/null || true
+
+# Create non-root user
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN chown -R app:app /app
+USER app
+
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8000/api/health/ || exit 1
+
+# Gunicorn with 3 workers (2 * CPU + 1 for small VPS)
+CMD ["gunicorn", \
+    "--bind", "0.0.0.0:8000", \
+    "--chdir", "src", \
+    "--workers", "3", \
+    "--timeout", "120", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "config.wsgi:application"]

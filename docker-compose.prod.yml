@@ -1,0 +1,96 @@
+# =============================================================
+# BetAdvisor — Production Docker Compose
+# =============================================================
+# Usage:
+#   cp apps/backend/.env.example apps/backend/.env.prod
+#   # Edit .env.prod with production values
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# This stack includes:
+#   - PostgreSQL 15 with persistent data
+#   - Django backend with Gunicorn (multi-stage build)
+#   - Caddy reverse proxy with automatic HTTPS
+#   - Persistent media volume for uploaded images
+# =============================================================
+
+services:
+
+  # ── PostgreSQL Database ─────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: betadvisor_db_prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-betadvisor}
+      POSTGRES_USER: ${POSTGRES_USER:-betadvisor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data/
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Do NOT expose port 5432 in production (only internal)
+
+    # ── Django Backend (Gunicorn) ───────────────────────────────
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.prod
+    container_name: betadvisor_backend_prod
+    restart: always
+    entrypoint: >
+      sh -c "
+        cd src &&
+        python manage.py migrate --noinput &&
+        python manage.py collectstatic --noinput &&
+        gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 120
+          --access-logfile - --error-logfile - config.wsgi:application
+      "
+    env_file:
+      - ./apps/backend/.env.prod
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-betadvisor}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-betadvisor}
+      - DEBUG=False
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health/" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Don't expose 8000 directly — Caddy handles HTTPS
+
+    # ── Caddy Reverse Proxy (auto HTTPS) ───────────────────────
+  caddy:
+    image: caddy:2-alpine
+    container_name: betadvisor_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - media_data:/srv/media:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data_prod:
+    driver: local
+  media_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
