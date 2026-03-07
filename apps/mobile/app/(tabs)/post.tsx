@@ -32,8 +32,8 @@ export default function PostScreen() {
 
     const formData = new FormData();
     const filename = image.split('/').pop();
-    const match_regex = /\.(\w+)$/.exec(filename || '');
-    const type = match_regex ? `image/${match_regex[1]}` : `image`;
+    const ext = (filename || '').split('.').pop()?.toLowerCase();
+    const type = ext && ext !== filename ? `image/${ext}` : `image`;
 
     // @ts-ignore : React Native FormData specific handling
     formData.append('image', { uri: image, name: filename, type });
@@ -64,8 +64,8 @@ export default function PostScreen() {
     if (image) {
       // Extraction propre du nom et du type pour React Native
       const filename = image.split('/').pop() || 'ticket.jpg';
-      const match_regex = /\.(\w+)$/.exec(filename);
-      const type = match_regex ? `image/${match_regex[1]}` : `image/jpeg`;
+      const ext = filename.split('.').pop()?.toLowerCase();
+      const type = ext && ext !== filename ? `image/${ext}` : `image/jpeg`;
 
       // @ts-ignore : TypeScript râle parfois sur le format RN, c'est normal
       formData.append('ticket_image', {

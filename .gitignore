@@ -91,3 +91,6 @@ Thumbs.db
 # ---- Logs ---------------------------------------------------
 *.log
 logs/
+
+# ---- Agent Memory (private, not committed) ------------------
+.agents/

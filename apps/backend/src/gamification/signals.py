@@ -2,12 +2,10 @@ from decimal import Decimal
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction
-from django.db.models import F
 from tickets.models import BetSelection
-from gamification.models import UserGlobalStats, UserSportStats, UserBadge
+from gamification.models import UserGlobalStats, UserSportStats
 from gamification.badges import BADGE_REGISTRY
 from gamification.utils import update_reputation
-from users.models import CustomUser
 
 @receiver(post_save, sender=BetSelection)
 def update_user_stats(sender, instance, created, **kwargs):
