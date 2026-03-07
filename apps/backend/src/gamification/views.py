@@ -1,3 +1,2 @@
-from django.shortcuts import render
-
-# Create your views here.
+# Gamification views
+# No views defined yet for this module.

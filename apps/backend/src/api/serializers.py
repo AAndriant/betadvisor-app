@@ -1,7 +1,8 @@
-import re
 import bleach
+from decimal import Decimal
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.db.models import Sum, Count, Case, When, F, Q, DecimalField, Value
 from bets.models import BetTicket
 
 User = get_user_model()
@@ -57,28 +58,40 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return None
 
     def get_stats(self, obj):
-        """Calcul dynamique des Unit Economics (ROI, Winrate)"""
-        bets = BetTicket.objects.filter(author=obj).exclude(status='PENDING')
-        total_bets = bets.count()
+        """Calcul dynamique des Unit Economics (ROI, Winrate) via DB aggregations."""
+        agg = BetTicket.objects.filter(author=obj).exclude(status='PENDING').aggregate(
+            total_bets=Count('id'),
+            wins=Count('id', filter=Q(status='WON')),
+            total_stake=Sum('stake'),
+            won_revenue=Sum(
+                Case(
+                    When(status='WON', then=F('stake') * F('odds') - F('stake')),
+                    default=Value(Decimal('0.00')),
+                    output_field=DecimalField(),
+                )
+            ),
+            lost_stakes=Sum(
+                Case(
+                    When(status='LOST', then=F('stake')),
+                    default=Value(Decimal('0.00')),
+                    output_field=DecimalField(),
+                )
+            ),
+        )
 
+        total_bets = agg['total_bets'] or 0
         if total_bets == 0:
             return {"roi": 0, "win_rate": 0, "total_bets": 0, "total_profit": 0}
 
-        wins = bets.filter(status='WON').count()
+        wins = agg['wins'] or 0
         win_rate = (wins / total_bets) * 100
 
-        total_stake = 0
-        net_profit = 0
+        won_revenue = agg['won_revenue'] or Decimal('0.00')
+        lost_stakes = agg['lost_stakes'] or Decimal('0.00')
+        net_profit = won_revenue - lost_stakes
+        total_stake = agg['total_stake'] or Decimal('0.00')
 
-        for bet in bets:
-            total_stake += bet.stake
-            if bet.status == 'WON':
-                gain = (bet.stake * bet.odds) - bet.stake
-                net_profit += gain
-            elif bet.status == 'LOST':
-                net_profit -= bet.stake
-
-        roi = (net_profit / total_stake * 100) if total_stake > 0 else 0
+        roi = (float(net_profit) / float(total_stake) * 100) if total_stake > 0 else 0
 
         return {
             "roi": round(roi, 2),
@@ -116,7 +129,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_badges(self, obj):
         try:
             from gamification.models import UserBadge
-            badges = UserBadge.objects.filter(user=obj).order_by('-awarded_at')
+            badges = UserBadge.objects.filter(user=obj).only(
+                'badge_name', 'description', 'awarded_at'
+            ).order_by('-awarded_at')
             return [{
                 'badge_name': b.badge_name,
                 'description': b.description,
