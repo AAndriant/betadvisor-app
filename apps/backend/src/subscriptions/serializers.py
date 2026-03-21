@@ -2,10 +2,12 @@ from rest_framework import serializers
 from subscriptions.models import Subscription
 
 class SubscriptionSerializer(serializers.ModelSerializer):
+    tipster_username = serializers.CharField(source='tipster.username', read_only=True)
+
     class Meta:
         model = Subscription
-        fields = ['tipster', 'status', 'current_period_end']
-        read_only_fields = ['tipster', 'status', 'current_period_end']
+        fields = ['id', 'tipster', 'tipster_username', 'status', 'current_period_end', 'created_at']
+        read_only_fields = ['id', 'tipster', 'tipster_username', 'status', 'current_period_end', 'created_at']
 
 
 class TipsterDashboardSerializer(serializers.ModelSerializer):

@@ -12,14 +12,32 @@ export interface LeaderboardUser {
 export interface UserProfile {
     id: string;
     username: string;
+    email?: string;
     avatar_url?: string;
+    bio?: string;
     follower_count: number;
     is_followed_by_me: boolean;
+    is_tipster: boolean;
+    subscription_price?: string;
+    halo_color?: string;
     stats?: {
         roi: number;
         win_rate: number;
         total_bets: number;
+        total_profit?: number;
     };
+    sport_stats?: Array<{
+        sport: string;
+        total_bets: number;
+        wins: number;
+        winrate: number;
+        roi: number;
+    }>;
+    badges?: Array<{
+        badge_name: string;
+        description: string;
+        awarded_at: string | null;
+    }>;
 }
 
 /**

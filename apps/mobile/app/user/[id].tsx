@@ -153,14 +153,16 @@ export default function UserProfileScreen() {
     const formattedUser = {
         name: userProfile.username,
         handle: userProfile.username,
-        role: 'TIPSTER' as const,
+        role: userProfile.is_tipster ? ('TIPSTER' as const) : ('PUNTER' as const),
         isVerified: true,
         avatarUrl: userProfile.avatar_url,
+        bio: userProfile.bio || '',
         stats: {
             roi: userProfile.stats?.roi || 0,
             winRate: userProfile.stats?.win_rate || 0,
             followers: userProfile.follower_count || 0,
         },
+        haloColor: userProfile.halo_color || 'none',
     };
 
     // S10-08: Sport stats
