@@ -1,61 +1,65 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, ActivityIndicator, Text, TouchableOpacity, Alert } from 'react-native';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { createConnectedAccount, getOnboardingLink } from '../src/services/api';
+import { useQueryClient } from '@tanstack/react-query';
+import { becomeTipster, BecomeTipsterResponse } from '../src/services/api';
+import { showSuccessToast } from '../src/services/toast';
 
 export default function TipsterOnboardingScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchLink = async () => {
+  const startOnboarding = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Try to create the account first. If the user already has one, the API should return a 400.
-      // We catch the error and proceed to get the onboarding link.
-      try {
-        await createConnectedAccount();
-      } catch (err: any) {
-        if (err.response && err.response.status === 400) {
-          console.log('User might already have a ConnectedAccount, proceeding to get onboarding link');
-        } else {
-          throw err;
-        }
+
+      const response: BecomeTipsterResponse = await becomeTipster();
+
+      if (response.status === 'already_onboarded') {
+        // Already fully onboarded — redirect to dashboard
+        showSuccessToast(response.message || 'Vous êtes déjà tipster !');
+        queryClient.invalidateQueries({ queryKey: ['myProfile'] });
+        router.replace('/(tabs)/dashboard');
+        return;
       }
 
-      const response = await getOnboardingLink();
-      if (response && response.url) {
-        setUrl(response.url);
+      if (response.status === 'onboarding_required' && response.onboarding_url) {
+        setUrl(response.onboarding_url);
       } else {
-        setError('No onboarding link received.');
+        setError('Aucun lien d\'onboarding reçu.');
       }
     } catch (err: any) {
-      console.error('Error fetching onboarding link:', err);
-      setError('Impossible de générer le lien Stripe.');
+      console.error('Error in become-tipster flow:', err);
+      const serverMsg = err.response?.data?.error;
+      setError(serverMsg || 'Impossible de lancer l\'onboarding Stripe.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLink();
+    startOnboarding();
   }, []);
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     const currentUrl = navState.url;
 
-    // The backend uses request.build_absolute_uri('/api/connect/return/') and '/api/connect/refresh/'
     if (currentUrl.includes('/api/connect/return/')) {
       // Successfully completed onboarding (or returned from it)
-      router.replace('/(tabs)/profile');
+      showSuccessToast('Onboarding terminé ! 🎉');
+      queryClient.invalidateQueries({ queryKey: ['myProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['tipsterStatus'] });
+      router.replace('/(tabs)/dashboard');
     } else if (currentUrl.includes('/api/connect/refresh/')) {
       // Session expired or needs refresh, fetch a new link
       setUrl(null);
-      fetchLink();
+      startOnboarding();
     }
   };
 
@@ -63,7 +67,8 @@ export default function TipsterOnboardingScreen() {
     return (
       <View className="flex-1 bg-slate-950 justify-center items-center">
         <ActivityIndicator size="large" color="#10b981" />
-        <Text className="text-slate-500 mt-4">Chargement de Stripe Connect...</Text>
+        <Text className="text-slate-500 mt-4">Création de votre profil tipster...</Text>
+        <Text className="text-slate-600 text-sm mt-2">Connexion à Stripe Connect...</Text>
       </View>
     );
   }
@@ -80,7 +85,7 @@ export default function TipsterOnboardingScreen() {
           <Text className="text-white font-bold">Retour</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={fetchLink}
+          onPress={startOnboarding}
           className="bg-emerald-500 px-6 py-3 rounded-full"
         >
           <Text className="text-white font-bold">Réessayer</Text>
@@ -91,6 +96,27 @@ export default function TipsterOnboardingScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-950">
+      {/* Header */}
+      <View className="px-4 py-3 border-b border-slate-800 flex-row items-center justify-between">
+        <TouchableOpacity onPress={() => {
+          Alert.alert(
+            'Quitter l\'onboarding ?',
+            'Vous pourrez reprendre plus tard depuis votre profil.',
+            [
+              { text: 'Continuer', style: 'cancel' },
+              { text: 'Quitter', style: 'destructive', onPress: () => {
+                queryClient.invalidateQueries({ queryKey: ['myProfile'] });
+                router.back();
+              }},
+            ]
+          );
+        }}>
+          <Text className="text-slate-400 text-base">✕ Fermer</Text>
+        </TouchableOpacity>
+        <Text className="text-white font-bold text-base">Stripe Connect</Text>
+        <View style={{ width: 70 }} />
+      </View>
+
       <WebView
         source={{ uri: url }}
         onNavigationStateChange={handleNavigationStateChange}
