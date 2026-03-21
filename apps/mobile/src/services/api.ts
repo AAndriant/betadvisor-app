@@ -301,6 +301,36 @@ export const getOnboardingLink = async () => {
   return data;
 };
 
+export interface BecomeTipsterResponse {
+  status: 'onboarding_required' | 'already_onboarded';
+  onboarding_url?: string;
+  onboarding_completed: boolean;
+  charges_enabled: boolean;
+  message?: string;
+}
+
+export const becomeTipster = async (subscriptionPrice?: string): Promise<BecomeTipsterResponse> => {
+  const body: Record<string, any> = {};
+  if (subscriptionPrice) {
+    body.subscription_price = subscriptionPrice;
+  }
+  const { data } = await api.post('/api/connect/become-tipster/', body);
+  return data;
+};
+
+export interface TipsterStatus {
+  is_tipster: boolean;
+  has_connected_account: boolean;
+  onboarding_completed: boolean;
+  charges_enabled: boolean;
+  subscription_price: string | null;
+}
+
+export const getTipsterStatus = async (): Promise<TipsterStatus> => {
+  const { data } = await api.get('/api/connect/tipster-status/');
+  return data;
+};
+
 export const createSubscriptionCheckout = async (tipsterId: string, successUrl: string, cancelUrl: string) => {
   const { data } = await api.post('/api/subscriptions/subscribe/', {
     tipster_id: tipsterId,

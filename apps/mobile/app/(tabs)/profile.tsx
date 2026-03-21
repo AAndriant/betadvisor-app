@@ -7,7 +7,7 @@ import { ProfileHeader } from '../../src/components/ProfileHeader';
 import { TicketCard } from '../../src/components/ui/TicketCard';
 import { useUserStats } from '../../src/hooks/useUserStats';
 import { fetchUserBets } from '../../src/services/users';
-import { settleBet } from '../../src/services/api';
+import { settleBet, getTipsterStatus, TipsterStatus } from '../../src/services/api';
 import { showSuccessToast } from '../../src/services/toast';
 
 interface SportStat {
@@ -58,6 +58,13 @@ export default function ProfileScreen() {
   const { data: userBets, isLoading: isLoadingBets, refetch: refetchBets } = useQuery({
     queryKey: ['myBets', user?.id],
     queryFn: () => fetchUserBets(user!.id),
+    enabled: !!user?.id,
+  });
+
+  // 3. Fetch tipster/onboarding status for CTA logic
+  const { data: tipsterStatus, refetch: refetchTipsterStatus } = useQuery<TipsterStatus>({
+    queryKey: ['tipsterStatus'],
+    queryFn: getTipsterStatus,
     enabled: !!user?.id,
   });
 
@@ -138,26 +145,53 @@ export default function ProfileScreen() {
             {/* Header connecté à l'API */}
             <ProfileHeader user={formattedUser} isOwnProfile={true} />
 
-            {/* S10-10A: CTA Buttons */}
-            {!user.is_tipster ? (
-              <View className="px-4 mt-4">
-                <TouchableOpacity
-                  onPress={() => router.push('/tipster-onboarding')}
-                  className="bg-emerald-500 rounded-xl py-3 items-center"
-                >
-                  <Text className="text-white font-bold text-lg">🚀 Devenir Tipster</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View className="px-4 mt-4">
-                <TouchableOpacity
-                  onPress={() => router.push('/(tabs)/dashboard')}
-                  className="bg-slate-900 border border-emerald-500 rounded-xl py-3 items-center"
-                >
-                  <Text className="text-emerald-500 font-bold text-lg">📊 Mon Dashboard</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* S10-10A: Tipster CTA — 3 states */}
+            {(() => {
+              const isTipster = user.is_tipster || tipsterStatus?.is_tipster;
+              const isFullyOnboarded = tipsterStatus?.onboarding_completed && tipsterStatus?.charges_enabled;
+
+              if (!isTipster) {
+                // State 1: Not a tipster yet
+                return (
+                  <View className="px-4 mt-4">
+                    <TouchableOpacity
+                      onPress={() => router.push('/tipster-onboarding')}
+                      className="bg-emerald-500 rounded-xl py-4 items-center"
+                    >
+                      <Text className="text-white font-bold text-lg">🚀 Devenir Tipster</Text>
+                      <Text className="text-emerald-100 text-xs mt-1">Monétise tes pronostics</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              if (isTipster && !isFullyOnboarded) {
+                // State 2: Tipster but Stripe onboarding incomplete
+                return (
+                  <View className="px-4 mt-4">
+                    <TouchableOpacity
+                      onPress={() => router.push('/tipster-onboarding')}
+                      className="bg-amber-500/20 border border-amber-500 rounded-xl py-4 items-center"
+                    >
+                      <Text className="text-amber-400 font-bold text-lg">⚠️ Finaliser l'onboarding Stripe</Text>
+                      <Text className="text-amber-300/70 text-xs mt-1">Complète ta vérification pour recevoir des paiements</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              // State 3: Fully onboarded tipster
+              return (
+                <View className="px-4 mt-4">
+                  <TouchableOpacity
+                    onPress={() => router.push('/(tabs)/dashboard')}
+                    className="bg-slate-900 border border-emerald-500 rounded-xl py-3 items-center"
+                  >
+                    <Text className="text-emerald-500 font-bold text-lg">📊 Mon Dashboard</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })()}
 
             {/* S10-08: Stats par sport */}
             {sportStats.length > 0 && (
@@ -257,7 +291,7 @@ export default function ProfileScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isLoading}
-            onRefresh={() => { refetch(); refetchBets(); }}
+            onRefresh={() => { refetch(); refetchBets(); refetchTipsterStatus(); }}
             tintColor="#10b981"
           />
         }
