@@ -239,6 +239,7 @@ class ResultSyncService:
         # Compteurs pour statistiques
         won_count = 0
         lost_count = 0
+        updated_bets = []
         
         # Étape 3: Traiter chaque pari avec transaction atomique
         with transaction.atomic():
@@ -258,8 +259,11 @@ class ResultSyncService:
                     lost_count += 1
                     print(f"    ✗ Pari perdant: '{bet.selection}' (résultat: {winning_result})")
                 
-                # Sauvegarder le BetSelection
-                bet.save()
+                updated_bets.append(bet)
+            
+            # Sauvegarder tous les BetSelections en une seule requête
+            if updated_bets:
+                BetSelection.objects.bulk_update(updated_bets, ['outcome'])
         
         # Résumé final
         print(f"  → [Settlement] ✅ Règlement terminé: {won_count} gagnants, {lost_count} perdants sur {total_bets} paris")
