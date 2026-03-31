@@ -34,7 +34,7 @@ class Command(BaseCommand):
             count = bets.count()
             self.stdout.write(f"Processing {count} bets...")
 
-            for i, bet in enumerate(bets):
+            for i, bet in enumerate(bets.iterator()):
                 process_bet_result(bet)
                 if (i + 1) % 100 == 0:
                     self.stdout.write(f"Processed {i + 1}/{count}")
