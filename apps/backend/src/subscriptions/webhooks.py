@@ -2,7 +2,6 @@ import logging
 import stripe
 from datetime import datetime, timezone
 from django.db import transaction
-from django.core.exceptions import ObjectDoesNotExist
 from subscriptions.models import Subscription, StripeEvent
 from subscriptions.emails import (
     send_new_subscriber_email,
