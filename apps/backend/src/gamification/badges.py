@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from django.utils import timezone
 from django.db.models import F
 from datetime import timedelta
 from gamification.models import UserBadge, UserSportStats, UserGlobalStats

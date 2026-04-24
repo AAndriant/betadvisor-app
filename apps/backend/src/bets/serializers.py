@@ -1,5 +1,4 @@
 import re
-import bleach
 from rest_framework import serializers
 from django.apps import apps
 from .models import BetTicket
