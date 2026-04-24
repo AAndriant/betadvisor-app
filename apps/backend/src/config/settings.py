@@ -16,7 +16,7 @@ environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 SECRET_KEY = env('SECRET_KEY', default='django-insecure-change-me-in-prod')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=False)
 
 _ALLOWED_HOSTS_DEFAULT = ['localhost', '127.0.0.1'] if DEBUG else []
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=_ALLOWED_HOSTS_DEFAULT)

@@ -8,6 +8,11 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 User = get_user_model()
 
+# ─── Mock constants for push token tests ───
+MOCK_EXPO_PUSH_TOKEN = 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]'
+MOCK_EXPO_PUSH_TOKEN_ALT = 'ExponentPushToken[aaabbbccc]'
+MOCK_INVALID_PUSH_TOKEN = 'invalid-token-format'
+
 
 def _create_test_image(size_kb=10, filename='test.jpg'):
     """Create a small test image."""
@@ -84,7 +89,7 @@ class PushTokenTests(TestCase):
     def test_register_push_token(self):
         """POST /api/me/push-token/ should register a token."""
         response = self.client.post('/api/me/push-token/', {
-            'token': 'ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]',
+            'token': MOCK_EXPO_PUSH_TOKEN,
             'device_name': 'iPhone 15',
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -92,13 +97,13 @@ class PushTokenTests(TestCase):
     def test_invalid_push_token_format(self):
         """Should reject non-Expo push tokens."""
         response = self.client.post('/api/me/push-token/', {
-            'token': 'invalid-token-format',
+            'token': MOCK_INVALID_PUSH_TOKEN,
         })
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_upsert_push_token(self):
         """Same token should be updated, not duplicated."""
-        token_val = 'ExponentPushToken[aaabbbccc]'
+        token_val = MOCK_EXPO_PUSH_TOKEN_ALT
         self.client.post('/api/me/push-token/', {'token': token_val, 'device_name': 'Old'})
         self.client.post('/api/me/push-token/', {'token': token_val, 'device_name': 'New'})
         from notifications.models import PushToken
