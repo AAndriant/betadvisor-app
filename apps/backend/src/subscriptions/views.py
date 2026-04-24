@@ -104,8 +104,15 @@ class TipsterDashboardView(APIView):
 
     def get(self, request):
         user = request.user
-        active_subs = Subscription.objects.filter(tipster=user, status="active")
-        total_subs = Subscription.objects.filter(tipster=user)
+
+        # Single aggregate query instead of multiple filter().count() calls
+        from django.db.models import Count, Q
+        agg = Subscription.objects.filter(tipster=user).aggregate(
+            active_count=Count('id', filter=Q(status='active')),
+            total_count=Count('id'),
+        )
+        active_count = agg['active_count']
+        total_count = agg['total_count']
 
         # S8-05: Use tipster's actual price
         price_per_month = Decimal('9.99')  # default
@@ -116,16 +123,20 @@ class TipsterDashboardView(APIView):
             pass
 
         PLATFORM_FEE = Decimal('0.20')
-        active_count = Decimal(str(active_subs.count()))
-        revenue = active_count * price_per_month * (Decimal('1') - PLATFORM_FEE)
+        revenue = Decimal(str(active_count)) * price_per_month * (Decimal('1') - PLATFORM_FEE)
+
+        # Fetch recent active subscriptions for serialization (separate query, needed for serializer)
+        recent_subs = Subscription.objects.filter(
+            tipster=user, status='active'
+        ).order_by('-created_at')[:10]
 
         data = {
-            "active_subscribers": active_subs.count(),
-            "total_subscribers_ever": total_subs.count(),
+            "active_subscribers": active_count,
+            "total_subscribers_ever": total_count,
             "monthly_revenue_estimate": float(round(revenue, 2)),
             "subscription_price": f"{price_per_month:.2f}",
             "recent_subscriptions": TipsterDashboardSerializer(
-                active_subs.order_by("-created_at")[:10], many=True
+                recent_subs, many=True
             ).data,
         }
         return Response(data)
