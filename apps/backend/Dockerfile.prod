@@ -45,6 +45,8 @@ COPY . .
 # Collect static files (run at build time with dummy env)
 RUN SECRET_KEY=build-collect-static \
     STRIPE_SECRET_KEY=sk_build_dummy \
+    STRIPE_LIVE_SECRET_KEY=sk_build_dummy \
+    STRIPE_LIVE_WEBHOOK_SECRET=whsec_build_dummy \
     DATABASE_URL=sqlite:///tmp/build.db \
     DEBUG=False \
     ALLOWED_HOSTS=build.local \
