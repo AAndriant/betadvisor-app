@@ -2,11 +2,11 @@
 # BetAdvisor — Caddy Reverse Proxy Configuration (PRODUCTION)
 # =============================================================
 # Caddy gère automatiquement HTTPS via Let's Encrypt.
-# Prérequis : DNS api.betadvisor.app → IP du VPS
+# Prérequis : DNS api.betadvisor.fr → IP du VPS
 # =============================================================
 
 # ── Production HTTPS ──────────────────────────────────────────
-api.betadvisor.app {
+api.betadvisor.fr {
     reverse_proxy backend:8000
 
     # Serve uploaded media files directly
