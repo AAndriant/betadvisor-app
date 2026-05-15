@@ -7,11 +7,15 @@ import Toast from 'react-native-toast-message';
 import "../global.css";
 import { AuthProvider } from '../src/context/AuthContext';
 import { registerForPushNotifications } from '../src/services/notifications';
+import { initAnalytics } from '../src/services/analytics';
+import { initMonitoring } from '../src/services/monitoring';
 
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
     useEffect(() => {
+        initMonitoring();
+        initAnalytics();
         // S8-03: Register for push notifications on app launch
         registerForPushNotifications();
     }, []);

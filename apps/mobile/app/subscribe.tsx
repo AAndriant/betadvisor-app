@@ -54,13 +54,13 @@ export default function SubscribeScreen() {
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     const currentUrl = navState.url;
 
-    if (currentUrl.includes('/return/success')) {
+    if (currentUrl.includes('/return/success') || currentUrl.includes('/checkout/success')) {
       // Invalidate queries so that subscriptions and profile are refreshed
       queryClient.invalidateQueries({ queryKey: ['mySubscriptions'] });
       showSuccessToast('Abonnement souscrit avec succès !');
       // Go back to the tipster profile
       router.back();
-    } else if (currentUrl.includes('/return/cancel')) {
+    } else if (currentUrl.includes('/return/cancel') || currentUrl.includes('/checkout/cancel')) {
       // Payment cancelled, just go back
       router.back();
     }

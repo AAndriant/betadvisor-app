@@ -42,21 +42,26 @@ export const useAnalyzeTicket = () => {
     setIsAnalyzing(true);
     try {
       // 1. Upload
-      const { ticket_id } = await uploadTicketImage(formData);
+      const uploadResponse = await uploadTicketImage(formData);
+      const ticketId = uploadResponse.ticket_id || uploadResponse.id;
+
+      if (!ticketId) {
+        throw new Error("Réponse OCR invalide : identifiant de ticket manquant");
+      }
 
       // 2. Polling (boucle simple pour l'exemple)
       let attempts = 0;
       while (attempts < 10) { // Max 20 secondes
         await new Promise(r => setTimeout(r, 2000)); // Attendre 2s
-        const statusData = await pollTicketStatus(ticket_id);
+        const statusData = await pollTicketStatus(ticketId);
 
         if (statusData.status === 'VALIDATED') {
           setIsAnalyzing(false);
           return statusData.ocr_data; // { match: "Real vs Barça", odds: 1.80 ... }
         }
-        if (statusData.status === 'REJECTED') {
+        if (['REJECTED', 'FAILED_OCR', 'REVIEW_NEEDED'].includes(statusData.status)) {
           setIsAnalyzing(false);
-          throw new Error("Analyse échouée");
+          throw new Error(statusData.warning_message || "Analyse échouée");
         }
         attempts++;
       }

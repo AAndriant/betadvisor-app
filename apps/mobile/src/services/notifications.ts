@@ -24,7 +24,7 @@ Notifications.setNotificationHandler({
 export async function registerForPushNotifications(): Promise<string | null> {
     // Push notifications only work on physical devices
     if (!Device.isDevice) {
-        console.log('Push notifications require a physical device');
+        if (__DEV__) console.log('Push notifications require a physical device');
         return null;
     }
 
@@ -40,7 +40,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
         }
 
         if (finalStatus !== 'granted') {
-            console.log('Push notification permission denied');
+            if (__DEV__) console.log('Push notification permission denied');
             return null;
         }
 
@@ -50,7 +50,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
         });
 
         const pushToken = tokenData.data;
-        console.log('Expo push token:', pushToken);
 
         // Register token with backend
         await registerTokenWithBackend(pushToken);
@@ -81,7 +80,7 @@ async function registerTokenWithBackend(token: string): Promise<void> {
             token,
             device_name: `${Device.modelName || 'Unknown'} (${Platform.OS})`,
         });
-        console.log('Push token registered with backend');
+        if (__DEV__) console.log('Push token registered with backend');
     } catch (error) {
         console.error('Failed to register push token with backend:', error);
     }

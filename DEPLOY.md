@@ -18,7 +18,7 @@
 
 - Docker & Docker Compose v2+
 - A VPS with at least 2GB RAM, 2 vCPU
-- A domain name (e.g., `api.betadvisor.app`)
+- A domain name (current production target: `api.betadvisor.fr`)
 - DNS pointed to your server's IP
 
 ## Quick Start
@@ -37,7 +37,7 @@ cp apps/backend/.env.example apps/backend/.env.prod
 # Required production values:
 DEBUG=False
 SECRET_KEY=<generate-with-python-secrets>
-ALLOWED_HOSTS=api.betadvisor.app
+ALLOWED_HOSTS=api.betadvisor.fr
 DATABASE_URL=postgres://betadvisor:<strong-password>@postgres:5432/betadvisor
 
 # Stripe LIVE keys
@@ -58,14 +58,14 @@ EMAIL_HOST_PASSWORD=<sendgrid-api-key>
 EMAIL_USE_TLS=True
 
 # CORS
-CORS_ALLOWED_ORIGINS=https://betadvisor.app
+CORS_ALLOWED_ORIGINS=https://betadvisor.fr
 ```
 
 ### 3. Configure Caddy for HTTPS
 
 Edit `Caddyfile`:
 ```
-api.betadvisor.app {
+api.betadvisor.fr {
     reverse_proxy backend:8000
     handle_path /media/* {
         root * /srv/media
@@ -101,28 +101,28 @@ docker compose -f docker-compose.prod.yml exec backend \
 
 Point your Stripe webhook to:
 ```
-https://api.betadvisor.app/api/stripe/webhook/
+https://api.betadvisor.fr/api/stripe/webhook/
 ```
 
 Events to listen for:
 - `checkout.session.completed`
-- `customer.subscription.updated`
+- `account.updated`
 - `customer.subscription.deleted`
-- `invoice.payment_succeeded`
+- `invoice.paid`
 - `invoice.payment_failed`
 
-### 7. Set up the settlement cron
+### 7. Verify the settlement cron container
 
 ```bash
-# Add to crontab on the server
-*/10 * * * * docker compose -f /path/to/docker-compose.prod.yml exec -T backend \
-    python src/manage.py settle_predictions >> /var/log/betadvisor-settle.log 2>&1
+docker compose -f docker-compose.prod.yml logs -f settlement-cron
 ```
+
+`docker-compose.prod.yml` runs `settlement-cron` every 10 minutes. Do not add a duplicate host crontab unless this service is disabled.
 
 ## Health Check
 
 ```bash
-curl https://api.betadvisor.app/api/health/
+curl https://api.betadvisor.fr/api/health/
 # Expected: {"status": "ok"}
 ```
 
@@ -137,6 +137,16 @@ docker compose -f docker-compose.prod.yml logs -f --tail=100
 ```bash
 docker compose -f docker-compose.prod.yml exec postgres \
     pg_dump -U betadvisor betadvisor > backup_$(date +%Y%m%d).sql
+```
+
+### Media backup
+Uploaded tickets and avatars live in the `media_data` Docker volume.
+
+```bash
+docker run --rm \
+  -v betadvisor-app_media_data:/media:ro \
+  -v "$PWD":/backup \
+  alpine tar czf /backup/media_$(date +%Y%m%d).tar.gz -C /media .
 ```
 
 ### Update deployment

@@ -108,7 +108,7 @@ export default function FeedScreen() {
   // P2-17: Filter bets
   const filteredBets = useMemo(() => {
     if (activeFilter === 'ALL') return allBets;
-    const statusMap: Record<string, string> = { 'PENDING': 'PENDING', 'WON': 'WIN', 'LOST': 'LOSS' };
+    const statusMap: Record<string, string> = { 'PENDING': 'PENDING', 'WON': 'WON', 'LOST': 'LOST' };
     return allBets.filter(b => b.status === statusMap[activeFilter]);
   }, [allBets, activeFilter]);
 

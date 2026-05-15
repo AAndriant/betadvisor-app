@@ -1,8 +1,11 @@
 import os
 import json
+import logging
 from google import genai
 from google.genai import types
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiOCRService:
@@ -35,18 +38,24 @@ class GeminiOCRService:
         mime_type = mime_map.get(ext, 'image/jpeg')
 
         prompt = """
-        Extract sports predictions from this betting ticket image as JSON.
+        Extract sports betting data from this betting ticket image as JSON.
         Return ONLY valid JSON. Do not use markdown formatting.
-        
-        Focus on PREDICTIONS, not betting amounts.
-        
+
         Required Keys:
-        - predictions (list of objects):
+        - bets (list of objects):
             - match_name (string, e.g. "PSG vs Real Madrid", "Djokovic vs Nadal")
+            - selection (string, e.g. "Home Win", "Over 2.5", "Djokovic")
+            - odds (number if visible, otherwise null)
+            - stake (number if visible, otherwise null)
+            - match_date (string if visible, format YYYY-MM-DD, otherwise null)
+
+        Optional Keys:
+        - predictions (list of objects, same length as bets if possible):
+            - match_name (string)
             - sport (string, one of: FOOTBALL, TENNIS, BASKETBALL, RUGBY, VOLLEYBALL, HANDBALL, HOCKEY, BASEBALL, FORMULA1, MMA)
             - prediction_type (string, one of: MATCH_RESULT, OVER_UNDER, BTTS, GOALSCORER, DOUBLE_CHANCE, CORRECT_SCORE, WINNER, SET_SCORE, TOTAL_POINTS, HANDICAP, OTHER)
             - prediction_value (string, e.g. "Home Win", "Over 2.5", "BTTS Yes", "Mbappé", "1X", "2-1", "Djokovic")
-            - match_date (string, date if visible on ticket, format YYYY-MM-DD, or null)
+            - match_date (string if visible, format YYYY-MM-DD, otherwise null)
         
         Guidelines for prediction_type:
         - MATCH_RESULT: 1, N, 2, Home Win, Draw, Away Win
@@ -83,6 +92,6 @@ class GeminiOCRService:
 
             return json.loads(cleaned_text.strip())
 
-        except Exception as e:
-            print(f"Gemini OCR Error: {e}")
-            raise e
+        except Exception:
+            logger.exception("Gemini OCR error")
+            raise

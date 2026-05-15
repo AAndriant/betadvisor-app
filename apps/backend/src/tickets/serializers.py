@@ -49,11 +49,13 @@ class TicketStatusSerializer(serializers.ModelSerializer):
     bet_selections = BetSelectionDetailSerializer(source='selections', many=True, read_only=True)
     status = serializers.SerializerMethodField()
     warning_message = serializers.SerializerMethodField()
+    ticket_id = serializers.UUIDField(source='id', read_only=True)
+    ocr_data = serializers.SerializerMethodField()
     
     class Meta:
         model = Ticket
-        fields = ['id', 'status', 'bet_selections', 'warning_message']
-        read_only_fields = ['id', 'status', 'bet_selections', 'warning_message']
+        fields = ['id', 'ticket_id', 'status', 'bet_selections', 'ocr_data', 'warning_message']
+        read_only_fields = ['id', 'ticket_id', 'status', 'bet_selections', 'ocr_data', 'warning_message']
     
     def get_status(self, obj):
         """Maps internal statuses to mobile-friendly codes."""
@@ -70,6 +72,44 @@ class TicketStatusSerializer(serializers.ModelSerializer):
                 return obj.ocr_error_log
             return "Analyse automatique échouée. Vérification manuelle en cours."
         return None
+
+    def get_ocr_data(self, obj):
+        """
+        Mobile-friendly OCR summary for the legacy post form.
+
+        The raw OCR payload is preserved in `ocr_raw_data`, while this shape
+        gives React Native stable keys for autofill.
+        """
+        raw = obj.ocr_raw_data or {}
+        first_bet = {}
+        if isinstance(raw.get('bets'), list) and raw['bets']:
+            first_bet = raw['bets'][0] or {}
+        elif isinstance(raw.get('predictions'), list) and raw['predictions']:
+            prediction = raw['predictions'][0] or {}
+            first_bet = {
+                'match_name': prediction.get('match_name'),
+                'selection': prediction.get('prediction_value'),
+                'odds': prediction.get('odds'),
+                'stake': prediction.get('stake'),
+            }
+
+        first_selection = obj.selections.first()
+        return {
+            'match': first_bet.get('match_name') or (
+                str(first_selection.match) if first_selection else ''
+            ),
+            'selection': first_bet.get('selection') or (
+                first_selection.selection if first_selection else ''
+            ),
+            'odds': first_bet.get('odds') or (
+                str(first_selection.odds) if first_selection else None
+            ),
+            'stake': first_bet.get('stake') or (
+                str(first_selection.stake) if first_selection else None
+            ),
+            'bets': raw.get('bets') or [],
+            'predictions': raw.get('predictions') or [],
+        }
 
 
 class TicketUploadSerializer(serializers.ModelSerializer):
@@ -93,18 +133,20 @@ class TicketUploadSerializer(serializers.ModelSerializer):
         ]
     )
     status_url = serializers.SerializerMethodField()
+    ticket_id = serializers.UUIDField(source='id', read_only=True)
     created_at = serializers.DateTimeField(source='created', read_only=True)
     
     class Meta:
         model = Ticket
         fields = [
             'id',
+            'ticket_id',
             'image',
             'status',
             'created_at',
             'status_url'
         ]
-        read_only_fields = ['id', 'status', 'created_at', 'status_url']
+        read_only_fields = ['id', 'ticket_id', 'status', 'created_at', 'status_url']
     
     def get_status_url(self, obj):
         """

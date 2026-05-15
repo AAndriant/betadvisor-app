@@ -1,15 +1,12 @@
-"""
-Result Synchronization Service
-
-This service handles the synchronization of match results from external sources.
-Currently uses mock data for testing purposes.
-"""
-
+"""Result synchronization service."""
+import logging
 from datetime import date
 from sports.models import Match
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models.functions import Greatest
 from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 
 class ResultSyncService:
@@ -34,7 +31,7 @@ class ResultSyncService:
         Returns:
             dict: Summary of sync operation with counts of updated/failed matches
         """
-        print(f"[ResultSync] Starting synchronization for date: {date_obj}")
+        logger.info("[ResultSync] Starting synchronization for date: %s", date_obj)
         
         # Fetch mock data (in production, this would call an external API)
         results = self._fetch_mock_data()
@@ -53,20 +50,25 @@ class ResultSyncService:
                 if match:
                     self._update_match(match, result)
                     stats['updated'] += 1
-                    print(f"[ResultSync] ✓ Updated: {result['home_team']} vs {result['away_team']}")
+                    logger.info("[ResultSync] Updated: %s vs %s", result['home_team'], result['away_team'])
                 else:
                     stats['failed'] += 1
                     error_msg = f"No match found for: {result['home_team']} vs {result['away_team']}"
                     stats['errors'].append(error_msg)
-                    print(f"[ResultSync] ✗ {error_msg}")
+                    logger.warning("[ResultSync] %s", error_msg)
                     
             except Exception as e:
                 stats['failed'] += 1
                 error_msg = f"Error processing {result['home_team']} vs {result['away_team']}: {str(e)}"
                 stats['errors'].append(error_msg)
-                print(f"[ResultSync] ✗ {error_msg}")
+                logger.exception("[ResultSync] %s", error_msg)
         
-        print(f"[ResultSync] Sync completed: {stats['updated']}/{stats['total']} updated, {stats['failed']} failed")
+        logger.info(
+            "[ResultSync] Sync completed: %s/%s updated, %s failed",
+            stats['updated'],
+            stats['total'],
+            stats['failed'],
+        )
         return stats
     
     def _fetch_mock_data(self):
@@ -115,17 +117,17 @@ class ResultSyncService:
         if external_id:
             try:
                 match = Match.objects.get(external_id=external_id)
-                print(f"  → Matched by external_id: {external_id}")
+                logger.debug("[ResultSync] Matched by external_id: %s", external_id)
                 return match
             except Match.DoesNotExist:
-                print(f"  → No match found by external_id: {external_id}, trying fuzzy search...")
+                logger.debug("[ResultSync] No match found by external_id: %s; trying fuzzy search", external_id)
         
         # Strategy 2: Fuzzy matching using trigram similarity
         home_team = result_data.get('home_team', '')
         away_team = result_data.get('away_team', '')
         
         if not home_team or not away_team:
-            print(f"  → Missing team names, cannot perform fuzzy search")
+            logger.warning("[ResultSync] Missing team names; cannot perform fuzzy search")
             return None
         
         # Search based on similarity to both team names
@@ -145,10 +147,15 @@ class ResultSyncService:
         if matches.exists():
             best_match = matches.first()
             similarity_score = best_match.max_similarity
-            print(f"  → Matched by fuzzy search: {best_match.home_team} vs {best_match.away_team} (similarity: {similarity_score:.2f})")
+            logger.debug(
+                "[ResultSync] Matched by fuzzy search: %s vs %s (similarity: %.2f)",
+                best_match.home_team,
+                best_match.away_team,
+                similarity_score,
+            )
             return best_match
         
-        print(f"  → No match found with similarity > {self.similarity_threshold}")
+        logger.debug("[ResultSync] No match found with similarity > %s", self.similarity_threshold)
         return None
     
     def _update_match(self, match, result_data):
@@ -201,19 +208,19 @@ class ResultSyncService:
         
         # Vérification: Le match doit avoir des scores finaux
         if match.home_score is None or match.away_score is None:
-            print(f"  → [Settlement] ⚠️  Match {match.id} n'a pas de scores finaux, règlement annulé")
+            logger.warning("[Settlement] Match %s n'a pas de scores finaux; règlement annulé", match.id)
             return
         
         # Étape 1: Déterminer le résultat réel du match (1N2)
         if match.home_score > match.away_score:
             winning_result = "home win"
-            print(f"  → [Settlement] Résultat: HOME WIN ({match.home_score}-{match.away_score})")
+            logger.info("[Settlement] Résultat: HOME WIN (%s-%s)", match.home_score, match.away_score)
         elif match.away_score > match.home_score:
             winning_result = "away win"
-            print(f"  → [Settlement] Résultat: AWAY WIN ({match.home_score}-{match.away_score})")
+            logger.info("[Settlement] Résultat: AWAY WIN (%s-%s)", match.home_score, match.away_score)
         else:
             winning_result = "draw"
-            print(f"  → [Settlement] Résultat: DRAW ({match.home_score}-{match.away_score})")
+            logger.info("[Settlement] Résultat: DRAW (%s-%s)", match.home_score, match.away_score)
         
         # Mapping des variantes possibles pour normalisation
         # Permet de gérer "Home Win", "1", "home win", etc.
@@ -230,10 +237,10 @@ class ResultSyncService:
         )
         
         total_bets = pending_bets.count()
-        print(f"  → [Settlement] {total_bets} paris à traiter pour ce match")
+        logger.info("[Settlement] %s paris à traiter pour ce match", total_bets)
         
         if total_bets == 0:
-            print(f"  → [Settlement] Aucun pari en attente, règlement terminé")
+            logger.info("[Settlement] Aucun pari en attente, règlement terminé")
             return
         
         # Compteurs pour statistiques
@@ -253,11 +260,17 @@ class ResultSyncService:
                 if is_winner:
                     bet.outcome = BetSelection.Outcome.WON
                     won_count += 1
-                    print(f"    ✓ Pari gagnant détecté ! Selection: '{bet.selection}' | Match: {match.home_team} vs {match.away_team} | Cote: {bet.odds}")
+                    logger.debug(
+                        "[Settlement] Pari gagnant: selection=%s match=%s vs %s odds=%s",
+                        bet.selection,
+                        match.home_team,
+                        match.away_team,
+                        bet.odds,
+                    )
                 else:
                     bet.outcome = BetSelection.Outcome.LOST
                     lost_count += 1
-                    print(f"    ✗ Pari perdant: '{bet.selection}' (résultat: {winning_result})")
+                    logger.debug("[Settlement] Pari perdant: %s (résultat: %s)", bet.selection, winning_result)
                 
                 updated_bets.append(bet)
             
@@ -266,7 +279,12 @@ class ResultSyncService:
                 BetSelection.objects.bulk_update(updated_bets, ['outcome'])
         
         # Résumé final
-        print(f"  → [Settlement] ✅ Règlement terminé: {won_count} gagnants, {lost_count} perdants sur {total_bets} paris")
+        logger.info(
+            "[Settlement] Règlement terminé: %s gagnants, %s perdants sur %s paris",
+            won_count,
+            lost_count,
+            total_bets,
+        )
     
     def trigger_settlement(self, match):
         """

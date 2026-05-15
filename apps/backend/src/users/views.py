@@ -28,8 +28,15 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
         
         Endpoint: GET /api/users/leaderboard/
         """
-        # Récupère tous les users (potentiellement limiter avec [:100] si DB trop large)
-        users = User.objects.all()
+        # MVP-friendly cap: only users with bets can rank, and the candidate
+        # pool stays bounded until ROI is cached in DB.
+        users = (
+            User.objects.filter(bets__isnull=False)
+            .distinct()
+            .select_related('global_stats', 'tipster_profile')
+            .prefetch_related('followers')
+            .order_by('-global_stats__reputation_score', 'username')[:500]
+        )
         
         # Sérialise pour calculer les stats (ROI, win_rate, etc.)
         data = UserProfileSerializer(users, many=True).data

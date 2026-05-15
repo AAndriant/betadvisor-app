@@ -252,7 +252,7 @@ export const uploadTicket = async (imageUri: string) => {
 };
 
 export const getTicketStatus = async (urlOrId: string) => {
-  const url = urlOrId.startsWith('http') ? urlOrId : `/api/tickets/${urlOrId}/`;
+  const url = urlOrId.startsWith('http') ? urlOrId : `/api/tickets/${urlOrId}/status/`;
   const response = await api.get(url);
   return response.data;
 };

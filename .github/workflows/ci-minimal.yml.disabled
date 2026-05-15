@@ -1,0 +1,81 @@
+name: CI Minimal
+
+on:
+  push:
+    branches:
+      - main
+      - "codex/**"
+      - "jules/**"
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-minimal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: betadvisor_ci
+          POSTGRES_USER: betadvisor
+          POSTGRES_PASSWORD: betadvisor_ci_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: apps/backend/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r apps/backend/requirements.txt
+      - name: Syntax check
+        run: python -m compileall apps/backend/src -q
+      - name: Django check, migrations, tests
+        env:
+          DEBUG: "True"
+          SECRET_KEY: "ci-dummy-secret-key-not-for-production"
+          DATABASE_URL: "postgres://betadvisor:betadvisor_ci_pass@localhost:5432/betadvisor_ci"
+          STRIPE_PUBLISHABLE_KEY: "pk_test_dummy"
+          STRIPE_SECRET_KEY: "sk_test_dummy"
+          STRIPE_WEBHOOK_SECRET: "whsec_dummy"
+          GEMINI_API_KEY: "dummy-gemini-key"
+          ALLOWED_HOSTS: "localhost"
+          EMAIL_BACKEND: "django.core.mail.backends.locmem.EmailBackend"
+          MEDIA_ROOT: "/tmp/betadvisor-media"
+        run: |
+          cd apps/backend/src
+          python manage.py check
+          python manage.py migrate --noinput
+          python manage.py test --verbosity=1
+
+  mobile:
+    name: Mobile
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm ci
+      - name: TypeScript check
+        working-directory: apps/mobile
+        run: npx tsc --noEmit

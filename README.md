@@ -22,8 +22,8 @@ betadvisor-app/
 ├── docker-compose.yml    # Orchestration root (postgres + backend)
 ├── .github/
 │   └── workflows/
-│       ├── backend.yml   # CI backend (path filter: apps/backend/**)
-│       └── mobile.yml    # CI mobile  (path filter: apps/mobile/**)
+│       ├── ci-minimal.yml     # CI active: backend tests + mobile typecheck
+│       └── *.yml.disabled     # Anciens workflows Night Train/Jules désactivés
 └── README.md
 ```
 
@@ -78,6 +78,7 @@ Basé sur `apps/backend/.env.example` :
 | `STRIPE_SECRET_KEY` | Clé secrète Stripe |
 | `STRIPE_PUBLISHABLE_KEY` | Clé publique Stripe |
 | `STRIPE_WEBHOOK_SECRET` | Secret webhook Stripe |
+| `SENTRY_DSN` | Monitoring backend optionnel |
 
 ### Backend — Variables PostgreSQL (`apps/backend/.env.db`)
 
@@ -99,15 +100,18 @@ Basé sur `apps/mobile/.env.example` :
 | Variable | Description |
 |----------|-------------|
 | `EXPO_PUBLIC_API_URL` | URL de base de l'API backend |
+| `EXPO_PUBLIC_SENTRY_DSN` | Monitoring mobile optionnel |
 
 > **Note :** Les variables `EXPO_PUBLIC_*` sont intégrées dans le bundle Expo et visibles côté client. Ne jamais y placer de secrets.
 
 ## CI / CD
 
-Les workflows GitHub Actions utilisent du **path filtering** :
+Le workflow actif est **`ci-minimal.yml`** :
 
-- **`backend.yml`** : déclenché uniquement si `apps/backend/**` ou le workflow lui-même change
-- **`mobile.yml`** : déclenché uniquement si `apps/mobile/**` ou le workflow lui-même change
+- Backend : `compileall`, `manage.py check`, migrations, tests Django.
+- Mobile : `npm ci`, `npx tsc --noEmit`.
+
+Les anciens workflows Night Train/Jules restent présents en `.yml.disabled`.
 
 ## Makefile — Commandes rapides
 
@@ -130,7 +134,7 @@ make ci-backend    # Lint backend (compileall + manage.py check)
 > ⚠️ Le `docker-compose.yml` root est **orienté développement local**.
 
 - La migration automatique (`migrate` avant `gunicorn`) est acceptable en dev pour simplifier le démarrage.
-- **En production**, les migrations doivent être exécutées manuellement ou via un entrypoint/job dédié, séparément du processus applicatif.
+- En production, le compose applique encore les migrations au démarrage du backend pour la bêta privée. À durcir avant lancement public via job de déploiement séparé.
 - Pour un environnement de staging/production, utiliser un outil comme Railway, Render, ou un pipeline de déploiement avec `python manage.py migrate` en pre-deploy step.
 
 ### Mac Silicon (M1/M2/M3) — seccomp:unconfined

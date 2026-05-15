@@ -2,8 +2,8 @@
  * P2-19: Analytics service for BetAdvisor.
  * 
  * Lightweight analytics abstraction layer.
- * In production, connect to PostHog, Amplitude, or Mixpanel
- * by setting EXPO_PUBLIC_POSTHOG_KEY in your .env file.
+ * In production, this can be wired to PostHog, Amplitude, or Mixpanel.
+ * Until a provider package is explicitly added, it stays console-only.
  * 
  * Usage:
  *   import { analytics } from '../services/analytics';
@@ -12,10 +12,7 @@
  *   analytics.identify(userId, { is_tipster: true });
  */
 
-const POSTHOG_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY;
-const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com';
-
-// Event queue for when PostHog is not yet initialized
+// Event queue for calls made before analytics initialization.
 let eventQueue: Array<{ type: string; args: any[] }> = [];
 let isInitialized = false;
 
@@ -24,28 +21,11 @@ let isInitialized = false;
  * Does nothing if no API key is configured (dev mode).
  */
 export async function initAnalytics(): Promise<void> {
-    if (!POSTHOG_KEY) {
+    if (__DEV__) {
         console.log('[Analytics] No POSTHOG_KEY configured — running in dev mode (console only)');
-        isInitialized = true;
-        flushQueue();
-        return;
     }
-
-    try {
-        // Dynamic import to avoid bundling PostHog in dev builds
-        const posthog = await import('posthog-react-native').catch(() => null);
-        if (posthog) {
-            // @ts-ignore — dynamic import
-            await posthog.PostHog.initAsync(POSTHOG_KEY, { host: POSTHOG_HOST });
-            isInitialized = true;
-            flushQueue();
-            console.log('[Analytics] PostHog initialized');
-        }
-    } catch (e) {
-        console.log('[Analytics] PostHog not available, using console fallback');
-        isInitialized = true;
-        flushQueue();
-    }
+    isInitialized = true;
+    flushQueue();
 }
 
 function flushQueue(): void {

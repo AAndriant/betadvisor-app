@@ -61,16 +61,15 @@ class CommentViewSet(viewsets.ModelViewSet):
         """
         serializer.save(user=self.request.user)
 
-    def perform_destroy(self, instance):
-        """
-        Only allow comment deletion by the author.
-        """
+    def destroy(self, request, *args, **kwargs):
+        """Only allow comment deletion by the author."""
+        instance = self.get_object()
         if instance.user != self.request.user:
             return Response(
                 {'error': 'You can only delete your own comments'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        instance.delete()
+        return super().destroy(request, *args, **kwargs)
 
 class FollowViewSet(viewsets.GenericViewSet):
     """

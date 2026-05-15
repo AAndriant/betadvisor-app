@@ -66,6 +66,33 @@ services:
       start_period: 15s
     # Don't expose 8000 directly — Caddy handles HTTPS
 
+  # ── Settlement Cron ────────────────────────────────────────
+  settlement-cron:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile.prod
+    container_name: betadvisor_cron_prod
+    restart: always
+    entrypoint: >
+      sh -c "
+        cd src &&
+        while true; do
+          echo '[CRON] Running settle_predictions at '$$(date);
+          python manage.py settle_predictions;
+          sleep 600;
+        done
+      "
+    env_file:
+      - ./apps/backend/.env.prod
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-betadvisor}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-betadvisor}
+      - DEBUG=False
+    volumes:
+      - media_data:/app/media
+    depends_on:
+      backend:
+        condition: service_healthy
+
     # ── Caddy Reverse Proxy (auto HTTPS) ───────────────────────
   caddy:
     image: caddy:2-alpine

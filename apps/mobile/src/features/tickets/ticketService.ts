@@ -14,7 +14,9 @@ export const uploadTicket = async (imageUri: string) => {
         type,
     } as any);
 
-    const response = await api.post('/api/tickets/', formData);
+    const response = await api.post('/api/tickets/upload/', formData, {
+        headers: { 'Content-Type': undefined },
+    });
 
     return response.data;
 };

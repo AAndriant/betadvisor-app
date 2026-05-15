@@ -2,14 +2,74 @@ import logging
 from django.db import transaction
 from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models.functions import Greatest
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from tickets.models import Ticket, BetSelection
 from tickets.services import GeminiOCRService
 from sports.models import Match
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, time
 
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_ocr_bets(data):
+    """
+    Normalize supported OCR payload shapes into the legacy `bets` contract.
+
+    Historical mobile/backend code expects `bets`, while the newer Gemini prompt
+    briefly returned `predictions`. Supporting both keeps older tickets and new
+    OCR responses from silently validating with zero selections.
+    """
+    if not isinstance(data, dict):
+        return []
+
+    bets = data.get('bets')
+    if isinstance(bets, list):
+        return bets
+
+    predictions = data.get('predictions')
+    if not isinstance(predictions, list):
+        return []
+
+    normalized = []
+    for prediction in predictions:
+        if not isinstance(prediction, dict):
+            continue
+        normalized.append({
+            'match_name': prediction.get('match_name', ''),
+            'selection': (
+                prediction.get('selection')
+                or prediction.get('prediction_value')
+                or 'Unknown'
+            ),
+            'odds': prediction.get('odds') or 1.0,
+            'stake': prediction.get('stake') or 0,
+            'match_date': prediction.get('match_date'),
+            'kickoff_time': prediction.get('kickoff_time') or prediction.get('match_date'),
+        })
+    return normalized
+
+
+def parse_ocr_datetime(value):
+    """Parse OCR date/datetime values into aware datetimes when possible."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return timezone.make_aware(value) if timezone.is_naive(value) else value
+    if not isinstance(value, str):
+        return None
+
+    parsed = parse_datetime(value)
+    if parsed:
+        return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
+
+    parsed_date = parse_date(value)
+    if parsed_date:
+        return timezone.make_aware(datetime.combine(parsed_date, time.min))
+
+    return None
 
 
 def process_ticket_image(ticket_id):
@@ -47,18 +107,30 @@ def process_ticket_image(ticket_id):
         
         # Save raw data
         ticket.ocr_raw_data = data
-        logger.info(f"[Thread] OCR data extracted for ticket {ticket_id}: {len(data.get('bets', []))} bets found")
+        bets = normalize_ocr_bets(data)
+        logger.info(f"[Thread] OCR data extracted for ticket {ticket_id}: {len(bets)} bets found")
         
         # Create BetSelections with secure match linking
         # We use a transaction to ensure atomicity
         with transaction.atomic():
-            bets = data.get('bets', [])
             unmatched_bets = []  # Track bets that couldn't be matched
+
+            if not bets:
+                unmatched_bets.append({
+                    'match_name': '<empty>',
+                    'selection': 'Unknown',
+                    'odds': 1.0,
+                    'reason': 'OCR returned no bets or predictions'
+                })
             
             for bet in bets:
                 match_name = bet.get('match_name', '')
                 selection = bet.get('selection', 'Unknown')
                 odds = bet.get('odds', 1.0)
+                stake = bet.get('stake') or 0
+                kickoff_time = parse_ocr_datetime(
+                    bet.get('kickoff_time') or bet.get('match_date')
+                )
                 
                 # CRITICAL: Fuzzy match using PostgreSQL Trigram Similarity
                 # Similarity threshold: 0.6 (60% confidence minimum - strong matches only)
@@ -84,7 +156,9 @@ def process_ticket_image(ticket_id):
                             ticket=ticket,
                             match=match,
                             selection=selection,
-                            odds=Decimal(str(odds))
+                            odds=Decimal(str(odds or 1.0)),
+                            stake=Decimal(str(stake or 0)),
+                            kickoff_time=kickoff_time,
                         )
                         logger.debug(f"[Thread] Bet matched: '{match_name}' -> {match} (similarity > {similarity_threshold})")
                     else:

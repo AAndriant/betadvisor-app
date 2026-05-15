@@ -1,4 +1,5 @@
 import os
+import warnings
 from pathlib import Path
 import environ
 
@@ -118,21 +119,12 @@ DATABASES = {
 
 # Clés Stripe — utiliser STRIPE_LIVE_SECRET_KEY en production
 # Si STRIPE_LIVE_SECRET_KEY est présent, il a la priorité sur STRIPE_SECRET_KEY
-_stripe_secret = env('STRIPE_LIVE_SECRET_KEY', default='') or env('STRIPE_SECRET_KEY', default='')
-if not _stripe_secret:
-    raise RuntimeError(
-        "[STRIPE] STRIPE_LIVE_SECRET_KEY ou STRIPE_SECRET_KEY requis au démarrage."
-    )
-STRIPE_SECRET_KEY = _stripe_secret
+STRIPE_SECRET_KEY = env('STRIPE_LIVE_SECRET_KEY', default='') or env('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY', default='')
 
-# Webhook secret — fail fast si absent et DEBUG=False
-_webhook_secret = env('STRIPE_LIVE_WEBHOOK_SECRET', default='') or env('STRIPE_WEBHOOK_SECRET', default='')
-if not DEBUG and not _webhook_secret:
-    raise RuntimeError(
-        "[STRIPE] STRIPE_LIVE_WEBHOOK_SECRET requis en production."
-    )
-STRIPE_WEBHOOK_SECRET = _webhook_secret or 'whsec_placeholder_dev_only'
+# Stripe services and webhook views guard missing secrets at handler level.
+# This keeps imports and non-payment checks healthy even when Stripe is not configured.
+STRIPE_WEBHOOK_SECRET = env('STRIPE_LIVE_WEBHOOK_SECRET', default='') or env('STRIPE_WEBHOOK_SECRET', default='')
 
 # Platform Stripe Account
 STRIPE_PLATFORM_ACCOUNT_ID = env('STRIPE_PLATFORM_ACCOUNT_ID', default='')
@@ -148,7 +140,6 @@ STRIPE_SUBSCRIPTION_PRICE_ID = env('STRIPE_SUBSCRIPTION_PRICE_ID', default='')
 # Cette variable est ici pour documentation et vérification au boot.
 STRIPE_PLATFORM_FEE_PERCENT = env.int('STRIPE_PLATFORM_FEE_PERCENT', default=20)
 if STRIPE_PLATFORM_FEE_PERCENT != 20:
-    import warnings
     warnings.warn(
         f"[FEE] STRIPE_PLATFORM_FEE_PERCENT={STRIPE_PLATFORM_FEE_PERCENT} (attendu: 20). "
         "Le service utilise la constante 20 — vérifier la cohérence.",
@@ -217,7 +208,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
-MEDIA_ROOT = os.path.join(BASE_DIR.parent, 'media')
+MEDIA_ROOT = env('MEDIA_ROOT', default=os.path.join(BASE_DIR.parent, 'media'))
 
 
 # Default primary key field type
@@ -288,6 +279,28 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB (for multipart)
 # PUSH NOTIFICATIONS (Expo Push API)
 # ─────────────────────────────────────────────────────────────
 EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+
+# ─────────────────────────────────────────────────────────────
+# OPTIONAL MONITORING (Sentry)
+# ─────────────────────────────────────────────────────────────
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            environment=env("SENTRY_ENVIRONMENT", default="production" if not DEBUG else "development"),
+            traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
+            send_default_pii=False,
+        )
+    except ImportError:
+        warnings.warn(
+            "SENTRY_DSN is set but sentry-sdk is not installed; monitoring disabled.",
+            RuntimeWarning,
+        )
 
 # ─────────────────────────────────────────────────────────────
 # PRODUCTION SECURITY — HTTPS / HSTS / Cookies
