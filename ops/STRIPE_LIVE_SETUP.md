@@ -2,7 +2,23 @@
 
 > **Criticité :** Business-critique. Ne pas rushier ces étapes.  
 > **Pré-requis :** Avoir terminé et validé les issues CC-01..CC-09 en staging/test.  
-> **Date de référence :** 2026-02-28
+> **Date de référence :** 2026-05-17
+
+## Cible Production BetAdvisor
+
+| Élément | Valeur |
+|---------|--------|
+| API | `https://api.betadvisor.fr` |
+| Webhook Stripe | `https://api.betadvisor.fr/api/stripe/webhook/` |
+| VPS | `/opt/betadvisor-app` |
+| Env prod | `/opt/betadvisor-app/apps/backend/.env.prod` |
+| Runtime | Docker Compose + Django/Gunicorn + Caddy |
+| Version API Stripe cible | `2026-02-25.clover` |
+
+> Note d'architecture : le code actuel utilise encore le flux Connect Express
+> existant via le SDK Stripe v1. Pour la bêta privée, ne pas refactorer le
+> paiement sans test E2E complet. Avant lancement public, réévaluer une migration
+> vers Accounts v2 si Stripe l'exige pour les nouveaux comptes plateforme.
 
 ---
 
@@ -14,7 +30,12 @@
 - les logs CI
 - un message de chat, email, ou document partagé
 
-**TOUJOURS** utiliser GitHub Secrets :
+En prod VPS actuelle, **TOUJOURS** injecter les clés directement dans
+`/opt/betadvisor-app/apps/backend/.env.prod` côté serveur, jamais dans Git.
+GitHub Secrets restent utiles pour CI/CD ou EAS si un pipeline de déploiement
+automatique est réactivé.
+
+Option CI/CD future :
 ```bash
 gh secret set STRIPE_LIVE_SECRET_KEY --repo AAndriant/betadvisor-app
 gh secret set STRIPE_LIVE_WEBHOOK_SECRET --repo AAndriant/betadvisor-app
@@ -60,8 +81,8 @@ gh secret set STRIPE_PLATFORM_ACCOUNT_ID --repo AAndriant/betadvisor-app
 
 ### 2.3 URL de redirection onboarding
 Dans `Connect → Settings → Redirect URLs` :
-- Success : `betadvisor://connect/onboarding-complete`
-- Refresh : `betadvisor://connect/onboarding-refresh`
+- Success : `https://api.betadvisor.fr/api/connect/return/`
+- Refresh : `https://api.betadvisor.fr/api/connect/refresh/`
 
 ---
 
@@ -69,8 +90,8 @@ Dans `Connect → Settings → Redirect URLs` :
 
 ### 3.1 Créer l'endpoint
 1. `Developers → Webhooks → Add endpoint`
-2. URL : `https://<VOTRE_DOMAINE_PRODUCTION>/api/stripe/webhook/`
-3. Version d'API Stripe : **dernière version stable** (ex: 2024-06-20)
+2. URL : `https://api.betadvisor.fr/api/stripe/webhook/`
+3. Version d'API Stripe : `2026-02-25.clover` ou la dernière version stable disponible dans le Dashboard Stripe
 
 ### 3.2 Events à écouter (obligatoires — implémentés dans CC-07)
 ```
@@ -94,7 +115,42 @@ gh secret set STRIPE_LIVE_WEBHOOK_SECRET --repo AAndriant/betadvisor-app
 
 ## ÉTAPE 4 — Configurer les Variables d'Environnement Production
 
-### 4.1 GitHub Secrets (CI/CD)
+### 4.1 VPS `.env.prod` (source actuelle de vérité)
+
+Modifier uniquement sur le VPS :
+```bash
+ssh root@212.227.215.79
+cd /opt/betadvisor-app
+sudo nano apps/backend/.env.prod
+```
+
+Variables minimales à renseigner ou vérifier :
+```bash
+DEBUG=False
+ALLOWED_HOSTS=api.betadvisor.fr,localhost
+SITE_URL=https://api.betadvisor.fr
+APP_BASE_URL=https://api.betadvisor.fr
+CORS_ALLOWED_ORIGINS=https://betadvisor.fr,https://www.betadvisor.fr
+
+STRIPE_LIVE_SECRET_KEY=sk_live_...
+STRIPE_LIVE_WEBHOOK_SECRET=whsec_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_PLATFORM_ACCOUNT_ID=acct_...
+STRIPE_PLATFORM_FEE_PERCENT=20
+
+CHECKOUT_SUCCESS_URL=betadvisor://checkout/success?session_id={CHECKOUT_SESSION_ID}
+CHECKOUT_CANCEL_URL=betadvisor://checkout/cancel
+EXPO_APP_SCHEME=betadvisor
+```
+
+Après modification :
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml ps
+curl https://api.betadvisor.fr/api/health/
+```
+
+### 4.2 GitHub Secrets (CI/CD future)
 ```bash
 # Live Stripe
 gh secret set STRIPE_LIVE_SECRET_KEY --repo AAndriant/betadvisor-app
@@ -103,18 +159,18 @@ gh secret set STRIPE_PLATFORM_ACCOUNT_ID --repo AAndriant/betadvisor-app
 
 # App
 gh secret set APP_BASE_URL --repo AAndriant/betadvisor-app
-# Valeur : https://api.betadvisor.app (ou votre domaine)
+# Valeur : https://api.betadvisor.fr
 
 gh secret set EXPO_APP_SCHEME --repo AAndriant/betadvisor-app
 # Valeur : betadvisor
 ```
 
-### 4.2 Variables d'environnement PaaS (Railway, Render, etc.)
+### 4.3 Variables d'environnement PaaS (si migration future)
 ```bash
 # Django Production Settings
 DEBUG=False
 SECRET_KEY=<générer avec: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())">
-ALLOWED_HOSTS=api.betadvisor.app
+ALLOWED_HOSTS=api.betadvisor.fr
 DATABASE_URL=postgres://...
 
 # Stripe Live
@@ -130,7 +186,7 @@ CHECKOUT_CANCEL_URL=betadvisor://checkout/cancel
 STRIPE_PLATFORM_FEE_PERCENT=20
 ```
 
-### 4.3 .env.example à mettre à jour
+### 4.4 .env.example à mettre à jour
 ```bash
 # Ajouter dans apps/backend/.env.example :
 STRIPE_LIVE_SECRET_KEY=sk_live_your-live-secret-key-here
@@ -223,9 +279,9 @@ curl -X POST http://localhost:8000/api/connect/create-account/ \
 
 - [ ] **1.** Compte Stripe Live activé avec KYC vérifié
 - [ ] **2.** Connect Express activé + branding configuré
-- [ ] **3.** `STRIPE_LIVE_SECRET_KEY` stocké dans GitHub Secrets  
-- [ ] **4.** `STRIPE_LIVE_WEBHOOK_SECRET` stocké dans GitHub Secrets
-- [ ] **5.** `STRIPE_PLATFORM_ACCOUNT_ID` stocké dans GitHub Secrets
+- [ ] **3.** `STRIPE_LIVE_SECRET_KEY` configuré dans `.env.prod` VPS
+- [ ] **4.** `STRIPE_LIVE_WEBHOOK_SECRET` configuré dans `.env.prod` VPS
+- [ ] **5.** `STRIPE_PLATFORM_ACCOUNT_ID` configuré dans `.env.prod` VPS
 - [ ] **6.** Webhook endpoint Live créé avec les 5 events requis
 - [ ] **7.** `CHECKOUT_SUCCESS_URL` et `CHECKOUT_CANCEL_URL` configurés (deep links `betadvisor://`)
 - [ ] **8.** `DEBUG=False` et `ALLOWED_HOSTS` non-vides en production

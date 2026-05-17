@@ -114,10 +114,11 @@ Events to listen for:
 ### 7. Verify the settlement cron container
 
 ```bash
+docker compose -f docker-compose.prod.yml ps settlement-cron
 docker compose -f docker-compose.prod.yml logs -f settlement-cron
 ```
 
-`docker-compose.prod.yml` runs `settlement-cron` every 10 minutes. Do not add a duplicate host crontab unless this service is disabled.
+`docker-compose.prod.yml` runs `settlement-cron` every 10 minutes. This service intentionally has no HTTP healthcheck because it is a worker loop, not a web server. Do not add a duplicate host crontab unless this service is disabled.
 
 ## Health Check
 

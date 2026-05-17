@@ -35,6 +35,45 @@ class CommentPermissionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertTrue(Comment.objects.filter(id=self.comment.id).exists())
 
+    def test_non_author_cannot_patch_comment(self):
+        self.client.force_authenticate(user=self.other)
+
+        response = self.client.patch(
+            f'/api/social/comments/{self.comment.id}/',
+            {'content': 'Hijacked'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.comment.refresh_from_db()
+        self.assertEqual(self.comment.content, 'Owner comment')
+
+    def test_non_author_cannot_put_comment(self):
+        self.client.force_authenticate(user=self.other)
+
+        response = self.client.put(
+            f'/api/social/comments/{self.comment.id}/',
+            {'content': 'Hijacked', 'bet': self.bet.id},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.comment.refresh_from_db()
+        self.assertEqual(self.comment.content, 'Owner comment')
+
+    def test_author_can_patch_comment(self):
+        self.client.force_authenticate(user=self.owner)
+
+        response = self.client.patch(
+            f'/api/social/comments/{self.comment.id}/',
+            {'content': 'Updated by owner'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.comment.refresh_from_db()
+        self.assertEqual(self.comment.content, 'Updated by owner')
+
     def test_author_can_delete_comment(self):
         self.client.force_authenticate(user=self.owner)
 

@@ -18,17 +18,38 @@ class Command(BaseCommand):
         # Ensure 'Football' sport exists
         football, _ = Sport.objects.get_or_create(name="Football")
 
+        league_payloads = {}
         for item in leagues_data:
             l_data = item['league']
             c_data = item['country']
-            
-            League.objects.update_or_create(
-                name=l_data['name'],
-                sport=football,
-                defaults={
-                    'country': c_data['name']
-                }
-            )
+
+            league_payloads[l_data['name']] = c_data['name']
+
+        league_names = list(league_payloads.keys())
+        existing_leagues = {
+            league.name: league
+            for league in League.objects.filter(sport=football, name__in=league_names)
+        }
+
+        leagues_to_create = []
+        leagues_to_update = []
+        for name, country in league_payloads.items():
+            league = existing_leagues.get(name)
+            if league is None:
+                leagues_to_create.append(League(name=name, sport=football, country=country))
+            elif league.country != country:
+                league.country = country
+                leagues_to_update.append(league)
+
+        if leagues_to_create:
+            League.objects.bulk_create(leagues_to_create)
+        if leagues_to_update:
+            League.objects.bulk_update(leagues_to_update, ['country'])
+
+        league_by_name = {
+            league.name: league
+            for league in League.objects.filter(sport=football, name__in=league_names)
+        }
         self.stdout.write(f"Synced {len(leagues_data)} leagues.")
 
         # 2. Sync Fixtures (for today)
@@ -41,10 +62,8 @@ class Command(BaseCommand):
             l_data = item['league']
             t_data = item['teams']
 
-            # Find league
-            try:
-                league = League.objects.get(name=l_data['name'], sport=football)
-            except League.DoesNotExist:
+            league = league_by_name.get(l_data['name'])
+            if league is None:
                 self.stdout.write(self.style.WARNING(f"League {l_data['name']} not found, skipping match."))
                 continue
 

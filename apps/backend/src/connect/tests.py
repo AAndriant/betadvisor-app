@@ -146,3 +146,35 @@ class ConnectDeprecatedRouteTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_410_GONE)
         self.assertEqual(response.data, {'error': 'use /api/subscriptions/subscribe/'})
+
+
+class OnboardingLinkViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='onboarding-user',
+            email='onboarding@test.com',
+            password='password123',
+        )
+        self.url = reverse('connect:onboarding-link')
+
+    def test_missing_connected_account_returns_404(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data, {'error': 'ConnectedAccount not found.'})
+
+    @patch('connect.views.create_onboarding_link')
+    def test_service_error_returns_400(self, mock_create_onboarding_link):
+        ConnectedAccount.objects.create(
+            user=self.user,
+            stripe_account_id='acct_test_error',
+        )
+        mock_create_onboarding_link.side_effect = StripeConnectError('Stripe unavailable')
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, {'error': 'Stripe unavailable'})

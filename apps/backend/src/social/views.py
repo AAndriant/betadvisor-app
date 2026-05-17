@@ -39,7 +39,7 @@ class LikeViewSet(viewsets.GenericViewSet):
 class CommentViewSet(viewsets.ModelViewSet):
     """
     ViewSet for CRUD operations on Comments.
-    List, Create, and Delete (owner only).
+    List, Create, Update, and Delete (owner only for mutations).
     """
     permission_classes = [IsAuthenticated]
     serializer_class = CommentSerializer
@@ -61,14 +61,36 @@ class CommentViewSet(viewsets.ModelViewSet):
         """
         serializer.save(user=self.request.user)
 
+    def _author_only_response(self, instance, action):
+        if instance.user_id == self.request.user.id:
+            return None
+        return Response(
+            {'error': f'You can only {action} your own comments'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    def update(self, request, *args, **kwargs):
+        """Only allow full comment updates by the author."""
+        instance = self.get_object()
+        forbidden = self._author_only_response(instance, 'update')
+        if forbidden:
+            return forbidden
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Only allow partial comment updates by the author."""
+        instance = self.get_object()
+        forbidden = self._author_only_response(instance, 'update')
+        if forbidden:
+            return forbidden
+        return super().partial_update(request, *args, **kwargs)
+
     def destroy(self, request, *args, **kwargs):
         """Only allow comment deletion by the author."""
         instance = self.get_object()
-        if instance.user != self.request.user:
-            return Response(
-                {'error': 'You can only delete your own comments'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        forbidden = self._author_only_response(instance, 'delete')
+        if forbidden:
+            return forbidden
         return super().destroy(request, *args, **kwargs)
 
 class FollowViewSet(viewsets.GenericViewSet):
